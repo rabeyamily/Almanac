@@ -1,0 +1,40 @@
+{
+  "expo": {
+    "name": "Almanac",
+    "slug": "almanac",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "scheme": "almanac",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#F5E6C8"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.almanac.habits"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#F5E6C8",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "package": "com.almanac.habits"
+    },
+    "web": {
+      "bundler": "metro",
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-font"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
