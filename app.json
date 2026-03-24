@@ -8,10 +8,22 @@
     "scheme": "almanac",
     "userInterfaceStyle": "light",
     "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#F5E6C8"
+      "image": "./landing-page.png",
+      "resizeMode": "cover",
+      "backgroundColor": "#F5EDD8"
     },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "assets": [
+      "./assets/splash-page/bg-rays.svg",
+      "./assets/splash-page/v-body.svg",
+      "./assets/splash-page/text-bg.svg",
+      "./assets/splash-page/icon-close.svg",
+      "./assets/splash-page/icon-cursor.svg",
+      "./assets/splash-page/icon-folder.svg",
+      "./assets/splash-page/icon-warning.svg"
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.almanac.habits"

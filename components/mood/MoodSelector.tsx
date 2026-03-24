@@ -26,45 +26,57 @@ interface MoodSelectorProps {
 }
 
 export function MoodSelector({ selected, onSelect }: MoodSelectorProps) {
+  const selectedIndex = selected ? MOODS.findIndex(m => m.level === selected) : -1;
+
   return (
     <View style={styles.container}>
       <VintageText variant="pixel" size="xs" color={Theme.colors.inkFaint} style={styles.heading}>
         TODAY'S MOOD
       </VintageText>
-      <View style={styles.row}>
-        {MOODS.map(m => {
-          const isActive = selected === m.level;
-          return (
-            <TouchableOpacity
-              key={m.level}
-              style={[
-                styles.tile,
-                { borderColor: m.color },
-                isActive && { backgroundColor: m.color },
-              ]}
-              onPress={() => onSelect(m.level)}
-              activeOpacity={0.7}
-            >
-              <VintageText
-                variant="mono"
-                size="lg"
-                color={isActive ? Theme.colors.paper : m.color}
-                align="center"
-                style={styles.symbol}
+      <View style={styles.dial}>
+        <View style={styles.track}>
+          {MOODS.map((m, idx) => {
+            const isActive = selected === m.level;
+            return (
+              <TouchableOpacity
+                key={m.level}
+                style={styles.notchHit}
+                onPress={() => onSelect(m.level)}
+                activeOpacity={0.75}
               >
-                {m.symbol}
-              </VintageText>
-              <VintageText
-                variant="mono"
-                size="xs"
-                color={isActive ? Theme.colors.paper : m.color}
-                align="center"
-              >
-                {m.label}
-              </VintageText>
-            </TouchableOpacity>
-          );
-        })}
+                <View style={[styles.notch, { borderColor: m.color }, isActive && { backgroundColor: m.color }]} />
+                <VintageText variant="mono" size="xs" color={isActive ? m.color : Theme.colors.inkFaint} align="center">
+                  {m.symbol}
+                </VintageText>
+                <VintageText variant="mono" size="xs" color={isActive ? Theme.colors.ink : Theme.colors.muted} align="center">
+                  {m.label}
+                </VintageText>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        {selectedIndex >= 0 ? (
+          <View style={[styles.indicatorWrap, { left: `${selectedIndex * 25}%` }]}>
+            <VintageText variant="mono" size="sm" color={MOODS[selectedIndex].color} align="center">
+              ▼
+            </VintageText>
+          </View>
+        ) : null}
+
+        <View style={styles.scaleLabels}>
+          <VintageText variant="mono" size="xs" color={Theme.colors.redDark}>AWFUL</VintageText>
+          <VintageText variant="mono" size="xs" color={Theme.colors.greenDark}>GREAT</VintageText>
+        </View>
+      </View>
+      <View style={styles.tapRow}>
+        {MOODS.map(m => (
+          <TouchableOpacity key={`tap-${m.level}`} onPress={() => onSelect(m.level)} style={styles.tapChip} activeOpacity={0.75}>
+            <VintageText variant="mono" size="xs" color={selected === m.level ? m.color : Theme.colors.inkFaint} align="center">
+              {m.level}
+            </VintageText>
+          </TouchableOpacity>
+        ))}
       </View>
     </View>
   );
@@ -76,20 +88,57 @@ const styles = StyleSheet.create({
   },
   heading: {
     letterSpacing: 2,
-    marginBottom: Theme.spacing.md,
+    marginBottom: Theme.spacing.sm,
   },
-  row: {
-    flexDirection: 'row',
-    gap: Theme.spacing.xs,
-  },
-  tile: {
-    flex: 1,
+  dial: {
     borderWidth: Theme.borderWidth.normal,
-    paddingVertical: Theme.spacing.sm,
-    alignItems: 'center',
+    borderColor: Theme.colors.border,
+    backgroundColor: Theme.colors.paperDark,
+    paddingTop: Theme.spacing.md,
+    paddingBottom: Theme.spacing.sm,
+    paddingHorizontal: Theme.spacing.sm,
   },
-  symbol: {
-    marginBottom: 4,
-    letterSpacing: 2,
+  track: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: Theme.spacing.xs,
+    borderTopWidth: Theme.borderWidth.thin,
+    borderBottomWidth: Theme.borderWidth.thin,
+    borderColor: Theme.colors.border,
+    paddingTop: Theme.spacing.sm,
+    paddingBottom: Theme.spacing.sm,
+  },
+  notchHit: {
+    width: '20%',
+    alignItems: 'center',
+    gap: 3,
+  },
+  notch: {
+    width: 16,
+    height: 16,
+    borderWidth: Theme.borderWidth.normal,
+    backgroundColor: Theme.colors.paper,
+  },
+  indicatorWrap: {
+    position: 'absolute',
+    top: 2,
+    width: '20%',
+  },
+  scaleLabels: {
+    marginTop: Theme.spacing.sm,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  tapRow: {
+    marginTop: Theme.spacing.xs,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  tapChip: {
+    width: '19%',
+    borderWidth: Theme.borderWidth.thin,
+    borderColor: Theme.colors.borderLight,
+    paddingVertical: 4,
+    backgroundColor: Theme.colors.paper,
   },
 });

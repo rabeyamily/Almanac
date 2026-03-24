@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import DraggableFlatList, { RenderItemParams } from 'react-native-draggable-flatlist';
-import { Audio } from 'expo-av';
 import { ScreenLayout, VintageText, Divider, VintageInput, VintageButton, VintageBox } from '@/components/ui';
 import { SessionHistory } from '@/components/timer/SessionHistory';
 import { HmsInput, hmsToSeconds, secondsToHms } from '@/components/timer/HmsInput';
@@ -35,7 +34,10 @@ interface PresetRuntime {
 
 async function playSound(url: string) {
   try {
-    const { sound } = await Audio.Sound.createAsync({ uri: url }, { shouldPlay: true, volume: 0.8 });
+    // expo-av is not available in some Expo Go environments (e.g. missing ExponentAV).
+    // Dynamically import and no-op on failure so timer still works.
+    const av = await import('expo-av');
+    const { sound } = await av.Audio.Sound.createAsync({ uri: url }, { shouldPlay: true, volume: 0.8 });
     sound.setOnPlaybackStatusUpdate(status => {
       if (!status.isLoaded || !status.didJustFinish) return;
       sound.unloadAsync().catch(() => undefined);

@@ -14,10 +14,23 @@ export function useAuth(): AuthState {
 
   useEffect(() => {
     // Get the initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setLoading(false);
-    });
+    supabase.auth
+      .getSession()
+      .then(async ({ data: { session }, error }) => {
+        if (error) {
+          // Recover from stale/invalid refresh tokens instead of throwing noisy boot errors.
+          await supabase.auth.signOut().catch(() => undefined);
+          setSession(null);
+        } else {
+          setSession(session);
+        }
+        setLoading(false);
+      })
+      .catch(async () => {
+        await supabase.auth.signOut().catch(() => undefined);
+        setSession(null);
+        setLoading(false);
+      });
 
     // Listen for session changes (login, logout, token refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
