@@ -3,7 +3,7 @@ import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { VintageText, Divider } from '@/components/ui';
 import { Theme } from '@/constants/theme';
 import { TimedSession } from '@/lib/types';
-import { formatShortDate, formatDuration } from '@/lib/dateUtils';
+import { formatShortDate, formatDurationHMS } from '@/lib/dateUtils';
 
 interface SessionHistoryProps {
   sessions: TimedSession[];
@@ -42,13 +42,16 @@ export function SessionHistory({ sessions, onDelete }: SessionHistoryProps) {
                   {formatShortDate(new Date(session.started_at))}
                 </VintageText>
                 <VintageText variant="mono" size="xs" color={Theme.colors.gold}>
-                  ◷ {formatDuration(session.duration_seconds)}
+                  ◷ {formatDurationHMS(session.completed_seconds ?? session.duration_seconds)}
                 </VintageText>
-                {session.ended_at && (
-                  <VintageText variant="mono" size="xs" color={Theme.colors.green}>
-                    ✓ DONE
-                  </VintageText>
-                )}
+                <VintageText variant="mono" size="xs" color={Theme.colors.borderLight}>
+                  {session.session_type === 'preset' ? 'PRESET' : 'SIMPLE'}
+                </VintageText>
+                {session.is_completed ? (
+                  <VintageText variant="mono" size="xs" color={Theme.colors.green}>✓ COMPLETE</VintageText>
+                ) : session.ended_at ? (
+                  <VintageText variant="mono" size="xs" color={Theme.colors.red}>■ STOPPED</VintageText>
+                ) : null}
               </View>
             </View>
             <TouchableOpacity onPress={() => onDelete(session.id)} style={styles.deleteBtn}>

@@ -96,8 +96,37 @@ export interface TimedSession {
   user_id: string;
   name: string;
   duration_seconds: number;
+  completed_seconds?: number | null;
+  session_type?: 'simple' | 'preset' | null;
+  preset_id?: string | null;
+  is_completed?: boolean | null;
+  is_stopped_manually?: boolean | null;
+  details?: Record<string, unknown> | null;
   started_at: string;
   ended_at: string | null;
+}
+
+export interface TimerPresetInterval {
+  id: string;
+  user_id: string;
+  preset_id: string;
+  label: string;
+  duration_seconds: number;
+  color: string;
+  order_index: number;
+  created_at: string;
+}
+
+export interface TimerPreset {
+  id: string;
+  user_id: string;
+  name: string;
+  repeat_count: number; // ignored when is_infinite = true
+  is_infinite: boolean;
+  order_index: number;
+  created_at: string;
+  updated_at: string;
+  intervals: TimerPresetInterval[];
 }
 
 // ─── Mood ────────────────────────────────────────────────────────────────────

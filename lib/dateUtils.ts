@@ -34,9 +34,19 @@ export function formatTime(date: Date): string {
 
 /** Formats seconds to "MM:SS" */
 export function formatDuration(seconds: number): string {
-  const m = Math.floor(seconds / 60).toString().padStart(2, '0');
-  const s = (seconds % 60).toString().padStart(2, '0');
+  const safe = Math.max(0, seconds);
+  const m = Math.floor(safe / 60).toString().padStart(2, '0');
+  const s = (safe % 60).toString().padStart(2, '0');
   return `${m}:${s}`;
+}
+
+/** Formats seconds to "HH:MM:SS" */
+export function formatDurationHMS(seconds: number): string {
+  const safe = Math.max(0, seconds);
+  const h = Math.floor(safe / 3600).toString().padStart(2, '0');
+  const m = Math.floor((safe % 3600) / 60).toString().padStart(2, '0');
+  const s = (safe % 60).toString().padStart(2, '0');
+  return `${h}:${m}:${s}`;
 }
 
 export { isToday, isSameDay };
