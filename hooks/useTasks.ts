@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Task, TaskCompletion, TaskWithStatus, Category, Subcategory } from '@/lib/types';
 import { toDateKey } from '@/lib/dateUtils';
+import { resyncAllReminderNotifications } from '@/lib/notifications';
 
 let taskChannelCounter = 0;
 
@@ -15,6 +16,7 @@ interface UseTasksReturn {
   deleteTask: (id: string) => Promise<void>;
   toggleComplete: (taskId: string, isCompleted: boolean) => Promise<void>;
   toggleHighlight: (taskId: string, highlighted: boolean) => Promise<void>;
+  reorderTasks: (taskIdsInOrder: string[]) => Promise<void>;
 }
 
 export function useTasks(date?: Date): UseTasksReturn {
@@ -30,8 +32,17 @@ export function useTasks(date?: Date): UseTasksReturn {
   const fetch = useCallback(async () => {
     setLoading(true);
 
-    const [taskRes, catRes, subRes, compRes] = await Promise.all([
-      supabase.from('tasks').select('*').order('created_at', { ascending: true }),
+    let taskRes = await supabase
+      .from('tasks')
+      .select('*')
+      .order('order_index', { ascending: true })
+      .order('created_at', { ascending: true });
+
+    if (taskRes.error && taskRes.error.message.toLowerCase().includes('order_index')) {
+      taskRes = await supabase.from('tasks').select('*').order('created_at', { ascending: true });
+    }
+
+    const [catRes, subRes, compRes] = await Promise.all([
       supabase.from('categories').select('*'),
       supabase.from('subcategories').select('*'),
       supabase.from('task_completions').select('*').eq('completed_date', dateKey),
@@ -58,6 +69,7 @@ export function useTasks(date?: Date): UseTasksReturn {
       })
       .map((t: Task) => ({
         ...t,
+        order_index: typeof t.order_index === 'number' ? t.order_index : Number.MAX_SAFE_INTEGER,
         is_completed: completedIds.has(t.id),
         category: t.category_id ? categoryMap[t.category_id] ?? null : null,
         subcategory: t.subcategory_id ? subMap[t.subcategory_id] ?? null : null,
@@ -80,15 +92,31 @@ export function useTasks(date?: Date): UseTasksReturn {
   }, [fetch]);
 
   const addTask = useCallback(async (data: Omit<Task, 'id' | 'user_id' | 'created_at'>): Promise<boolean> => {
-    const fullPayload: Record<string, unknown> = { ...data };
+    const nextOrderIndex = Math.min(
+      2147483647,
+      Math.max(0, ...tasks.map(t => (typeof t.order_index === 'number' ? t.order_index : 0))) + 1
+    );
+
+    const fullPayload: Record<string, unknown> = { ...data, order_index: nextOrderIndex };
     const noHighlightPayload: Record<string, unknown> = { ...fullPayload };
     delete noHighlightPayload.highlighted;
-    const legacyPayload: Record<string, unknown> = { ...noHighlightPayload };
+    const noReminderPayload: Record<string, unknown> = { ...noHighlightPayload };
+    delete noReminderPayload.reminder_settings;
+    const noOrderPayload: Record<string, unknown> = { ...noReminderPayload };
+    delete noOrderPayload.order_index;
+    const legacyPayload: Record<string, unknown> = { ...noOrderPayload };
     delete legacyPayload.rich_text_name;
     delete legacyPayload.subcategory_id;
+    const minimalPayload: Record<string, unknown> = {
+      name: data.name,
+      repeat_schedule: data.repeat_schedule ?? 'daily',
+      custom_days: null,
+      scheduled_time: null,
+      category_id: null,
+    };
 
     // Try progressively older payloads so insert still works if migration is partial.
-    const attempts = [fullPayload, noHighlightPayload, legacyPayload];
+    const attempts = [fullPayload, noHighlightPayload, noReminderPayload, noOrderPayload, legacyPayload, minimalPayload];
     let lastError: string | null = null;
 
     for (let i = 0; i < attempts.length; i += 1) {
@@ -100,6 +128,7 @@ export function useTasks(date?: Date): UseTasksReturn {
           setError(null);
         }
         await fetch();
+        void resyncAllReminderNotifications();
         return true;
       }
       lastError = error.message;
@@ -115,12 +144,14 @@ export function useTasks(date?: Date): UseTasksReturn {
     setTasks(prev => prev.map(t => (t.id === id ? { ...t, ...data } : t)));
     const { error } = await supabase.from('tasks').update(data).eq('id', id);
     if (error) { setError(error.message); fetch(); }
+    else if (Object.prototype.hasOwnProperty.call(data, 'reminder_settings')) void resyncAllReminderNotifications();
   }, [fetch]);
 
   const deleteTask = useCallback(async (id: string) => {
     setTasks(prev => prev.filter(t => t.id !== id));
     const { error } = await supabase.from('tasks').delete().eq('id', id);
     if (error) { setError(error.message); fetch(); }
+    else void resyncAllReminderNotifications();
   }, [fetch]);
 
   const toggleComplete = useCallback(async (taskId: string, isCompleted: boolean) => {
@@ -157,5 +188,28 @@ export function useTasks(date?: Date): UseTasksReturn {
     }
   }, []);
 
-  return { tasks, loading, error, refresh: fetch, addTask, updateTask, deleteTask, toggleComplete, toggleHighlight };
+  const reorderTasks = useCallback(async (taskIdsInOrder: string[]) => {
+    if (!taskIdsInOrder.length) return;
+
+    const localOrderMap = new Map(taskIdsInOrder.map((id, idx) => [id, idx]));
+    setTasks(prev => {
+      const updated = prev.map(t => {
+        const idx = localOrderMap.get(t.id);
+        return typeof idx === 'number' ? { ...t, order_index: idx } : t;
+      });
+      return [...updated].sort((a, b) => a.order_index - b.order_index);
+    });
+
+    const updates = taskIdsInOrder.map((id, idx) =>
+      supabase.from('tasks').update({ order_index: idx }).eq('id', id)
+    );
+    const results = await Promise.all(updates);
+    const firstError = results.find(r => r.error)?.error;
+    if (firstError) {
+      setError(firstError.message);
+      await fetch();
+    }
+  }, [fetch]);
+
+  return { tasks, loading, error, refresh: fetch, addTask, updateTask, deleteTask, toggleComplete, toggleHighlight, reorderTasks };
 }

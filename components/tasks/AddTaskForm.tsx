@@ -2,8 +2,9 @@ import React, { useState, useMemo } from 'react';
 import { View, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
 import { VintageText, VintageInput, VintageButton, VintageBox, Divider } from '@/components/ui';
 import { RichTextEditor } from './RichTextEditor';
+import { ReminderEditor } from '@/components/reminders/ReminderEditor';
 import { Theme } from '@/constants/theme';
-import { Category, Subcategory, RepeatSchedule, Task, RichTextSegment } from '@/lib/types';
+import { Category, Subcategory, RepeatSchedule, Task, RichTextSegment, ReminderSettings } from '@/lib/types';
 
 interface AddTaskFormProps {
   categories: Category[];
@@ -28,6 +29,7 @@ export function AddTaskForm({ categories, subcategories, onSave, onClose }: AddT
   const [scheduledTime, setScheduledTime] = useState('');
   const [repeat, setRepeat] = useState<RepeatSchedule>('daily');
   const [customDays, setCustomDays] = useState<number[]>([]);
+  const [reminder, setReminder] = useState<ReminderSettings | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -52,6 +54,8 @@ export function AddTaskForm({ categories, subcategories, onSave, onClose }: AddT
       repeat_schedule: repeat,
       custom_days: repeat === 'custom' ? customDays : null,
       highlighted: false,
+      order_index: 0,
+      reminder_settings: reminder,
     });
     setSaving(false);
     if (ok) onClose();
@@ -190,6 +194,8 @@ export function AddTaskForm({ categories, subcategories, onSave, onClose }: AddT
           ))}
         </View>
       ) : null}
+
+      <ReminderEditor value={reminder} onChange={setReminder} title="SET REMINDER" />
 
       <Divider marginVertical={Theme.spacing.sm} />
       <View style={styles.actions}>

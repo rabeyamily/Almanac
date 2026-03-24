@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { VintageText } from '@/components/ui';
 import { TaskCard } from './TaskCard';
 import { Theme } from '@/constants/theme';
 import { Category, Subcategory, TaskWithStatus } from '@/lib/types';
+import DraggableFlatList, { RenderItemParams } from 'react-native-draggable-flatlist';
 
 interface CategorySectionProps {
   category: Category;
@@ -11,7 +12,8 @@ interface CategorySectionProps {
   tasks: TaskWithStatus[];
   onToggle: (id: string, completed: boolean) => void;
   onDelete: (id: string) => void;
-  onToggleHighlight?: (id: string, highlighted: boolean) => void;
+  onEdit?: (task: TaskWithStatus) => void;
+  onReorder?: (ids: string[]) => Promise<void>;
 }
 
 export function CategorySection({
@@ -20,15 +22,16 @@ export function CategorySection({
   tasks,
   onToggle,
   onDelete,
-  onToggleHighlight,
+  onEdit,
+  onReorder,
 }: CategorySectionProps) {
   const [collapsed, setCollapsed] = useState(false);
 
-  const directTasks = tasks.filter(t => !t.subcategory_id);
-  const subsWithTasks = subcategories.map(sub => ({
+  const directTasks = useMemo(() => tasks.filter(t => !t.subcategory_id), [tasks]);
+  const subsWithTasks = useMemo(() => subcategories.map(sub => ({
     sub,
     tasks: tasks.filter(t => t.subcategory_id === sub.id),
-  })).filter(g => g.tasks.length > 0);
+  })).filter(g => g.tasks.length > 0), [subcategories, tasks]);
 
   const totalTasks = tasks.length;
   const doneTasks = tasks.filter(t => t.is_completed).length;
@@ -58,9 +61,15 @@ export function CategorySection({
 
       {!collapsed ? (
         <View style={styles.catBody}>
-          {directTasks.map(task => (
-            <TaskCard key={task.id} task={task} onToggle={onToggle} onDelete={onDelete} onToggleHighlight={onToggleHighlight} />
-          ))}
+          {directTasks.length > 0 ? (
+            <SectionDraggableList
+              tasks={directTasks}
+              onToggle={onToggle}
+              onDelete={onDelete}
+              onEdit={onEdit}
+              onReorder={onReorder}
+            />
+          ) : null}
 
           {subsWithTasks.map(({ sub, tasks: subTasks }) => (
             <SubcategoryGroup
@@ -70,7 +79,8 @@ export function CategorySection({
               tasks={subTasks}
               onToggle={onToggle}
               onDelete={onDelete}
-              onToggleHighlight={onToggleHighlight}
+              onEdit={onEdit}
+              onReorder={onReorder}
             />
           ))}
 
@@ -91,10 +101,11 @@ interface SubcategoryGroupProps {
   tasks: TaskWithStatus[];
   onToggle: (id: string, completed: boolean) => void;
   onDelete: (id: string) => void;
-  onToggleHighlight?: (id: string, highlighted: boolean) => void;
+  onEdit?: (task: TaskWithStatus) => void;
+  onReorder?: (ids: string[]) => Promise<void>;
 }
 
-function SubcategoryGroup({ subcategory, parentColor, tasks, onToggle, onDelete, onToggleHighlight }: SubcategoryGroupProps) {
+function SubcategoryGroup({ subcategory, parentColor, tasks, onToggle, onDelete, onEdit, onReorder }: SubcategoryGroupProps) {
   const [collapsed, setCollapsed] = useState(false);
   const color = subcategory.color ?? parentColor;
 
@@ -119,12 +130,60 @@ function SubcategoryGroup({ subcategory, parentColor, tasks, onToggle, onDelete,
 
       {!collapsed ? (
         <View style={styles.subBody}>
-          {tasks.map(task => (
-            <TaskCard key={task.id} task={task} onToggle={onToggle} onDelete={onDelete} onToggleHighlight={onToggleHighlight} />
-          ))}
+          {tasks.length > 1 ? (
+            <SectionDraggableList
+              tasks={tasks}
+              onToggle={onToggle}
+              onDelete={onDelete}
+              onEdit={onEdit}
+              onReorder={onReorder}
+            />
+          ) : (
+            tasks.map(task => (
+              <TaskCard key={task.id} task={task} onToggle={onToggle} onDelete={onDelete} onEdit={onEdit} />
+            ))
+          )}
         </View>
       ) : null}
     </View>
+  );
+}
+
+interface SectionDraggableListProps {
+  tasks: TaskWithStatus[];
+  onToggle: (id: string, completed: boolean) => void;
+  onDelete: (id: string) => void;
+  onEdit?: (task: TaskWithStatus) => void;
+  onReorder?: (ids: string[]) => Promise<void>;
+}
+
+function SectionDraggableList({ tasks, onToggle, onDelete, onEdit, onReorder }: SectionDraggableListProps) {
+  const [data, setData] = useState<TaskWithStatus[]>(tasks);
+  useEffect(() => { setData(tasks); }, [tasks]);
+
+  const renderItem = ({ item, drag }: RenderItemParams<TaskWithStatus>) => (
+    <TaskCard
+      task={item}
+      onToggle={onToggle}
+      onDelete={onDelete}
+      onPressDrag={drag}
+      onEdit={onEdit}
+    />
+  );
+
+  return (
+    <DraggableFlatList
+      data={data}
+      keyExtractor={item => item.id}
+      renderItem={renderItem}
+      onDragEnd={async ({ data: nextData }) => {
+        setData(nextData);
+        await onReorder?.(nextData.map(t => t.id));
+      }}
+      scrollEnabled={false}
+      activationDistance={8}
+      containerStyle={styles.dragList}
+    />
   );
 }
 
@@ -154,6 +213,9 @@ const styles = StyleSheet.create({
   catBody: {
     paddingLeft: Theme.spacing.sm,
     paddingTop: Theme.spacing.sm,
+  },
+  dragList: {
+    marginBottom: Theme.spacing.xs,
   },
   emptyHint: {
     marginVertical: Theme.spacing.sm,

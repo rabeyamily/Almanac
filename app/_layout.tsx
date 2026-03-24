@@ -8,6 +8,7 @@ import { View, StyleSheet, ActivityIndicator } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useAuth } from '@/hooks/useAuth';
 import { Theme } from '@/constants/theme';
+import { resyncAllReminderNotifications } from '@/lib/notifications';
 
 // Keep the splash screen visible until fonts are loaded
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -41,6 +42,11 @@ export default function RootLayout() {
       router.replace('/(tabs)');
     }
   }, [session, authLoading, fontsLoaded, segments]);
+
+  useEffect(() => {
+    if (!session) return;
+    void resyncAllReminderNotifications();
+  }, [session?.user?.id]);
 
   if (!fontsLoaded && !fontError) {
     return (

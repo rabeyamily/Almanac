@@ -1,14 +1,15 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Subcategory } from '@/lib/types';
+import { resyncAllReminderNotifications } from '@/lib/notifications';
 
 interface UseSubcategoriesReturn {
   subcategories: Subcategory[];
   loading: boolean;
   error: string | null;
   refresh: () => Promise<void>;
-  addSubcategory: (data: { category_id: string; name: string; color?: string | null }) => Promise<Subcategory | null>;
-  updateSubcategory: (id: string, data: Partial<Pick<Subcategory, 'name' | 'color'>>) => Promise<void>;
+  addSubcategory: (data: { category_id: string; name: string; color?: string | null; reminder_settings?: Subcategory['reminder_settings'] }) => Promise<Subcategory | null>;
+  updateSubcategory: (id: string, data: Partial<Pick<Subcategory, 'name' | 'color' | 'reminder_settings'>>) => Promise<void>;
   deleteSubcategory: (id: string) => Promise<void>;
   getForCategory: (categoryId: string) => Subcategory[];
 }
@@ -43,7 +44,7 @@ export function useSubcategories(): UseSubcategoriesReturn {
   }, [fetchData]);
 
   const addSubcategory = useCallback(async (
-    data: { category_id: string; name: string; color?: string | null }
+    data: { category_id: string; name: string; color?: string | null; reminder_settings?: Subcategory['reminder_settings'] }
   ): Promise<Subcategory | null> => {
     const { data: inserted, error: err } = await supabase
       .from('subcategories')
@@ -52,21 +53,24 @@ export function useSubcategories(): UseSubcategoriesReturn {
       .single();
     if (err) { setError(err.message); return null; }
     setSubcategories(prev => [...prev, inserted]);
+    void resyncAllReminderNotifications();
     return inserted;
   }, []);
 
   const updateSubcategory = useCallback(async (
-    id: string, data: Partial<Pick<Subcategory, 'name' | 'color'>>
+    id: string, data: Partial<Pick<Subcategory, 'name' | 'color' | 'reminder_settings'>>
   ) => {
     setSubcategories(prev => prev.map(s => s.id === id ? { ...s, ...data } : s));
     const { error: err } = await supabase.from('subcategories').update(data).eq('id', id);
     if (err) { setError(err.message); fetchData(); }
+    else if (Object.prototype.hasOwnProperty.call(data, 'reminder_settings')) void resyncAllReminderNotifications();
   }, [fetchData]);
 
   const deleteSubcategory = useCallback(async (id: string) => {
     setSubcategories(prev => prev.filter(s => s.id !== id));
     const { error: err } = await supabase.from('subcategories').delete().eq('id', id);
     if (err) { setError(err.message); fetchData(); }
+    else void resyncAllReminderNotifications();
   }, [fetchData]);
 
   const getForCategory = useCallback(

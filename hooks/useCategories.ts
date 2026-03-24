@@ -1,6 +1,7 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Category } from '@/lib/types';
+import { resyncAllReminderNotifications } from '@/lib/notifications';
 
 interface UseCategoriesReturn {
   categories: Category[];
@@ -8,14 +9,17 @@ interface UseCategoriesReturn {
   error: string | null;
   refresh: () => Promise<void>;
   addCategory: (data: Omit<Category, 'id' | 'user_id' | 'created_at'>) => Promise<Category | null>;
-  updateCategory: (id: string, data: Partial<Pick<Category, 'name' | 'icon' | 'color'>>) => Promise<void>;
+  updateCategory: (id: string, data: Partial<Pick<Category, 'name' | 'icon' | 'color' | 'reminder_settings'>>) => Promise<void>;
   deleteCategory: (id: string) => Promise<void>;
 }
+
+let categoryChannelCounter = 0;
 
 export function useCategories(): UseCategoriesReturn {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const channelId = useRef(`categories-${++categoryChannelCounter}-${Date.now()}`);
 
   const fetch = useCallback(async () => {
     setLoading(true);
@@ -38,7 +42,7 @@ export function useCategories(): UseCategoriesReturn {
 
     // Real-time subscription
     const channel = supabase
-      .channel('categories')
+      .channel(channelId.current)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'categories' }, fetch)
       .subscribe();
 
@@ -70,12 +74,13 @@ export function useCategories(): UseCategoriesReturn {
       return null;
     }
     setCategories(prev => prev.map(c => (c.id === tempId ? inserted : c)));
+    void resyncAllReminderNotifications();
     return inserted;
   }, []);
 
   const updateCategory = useCallback(async (
     id: string,
-    data: Partial<Pick<Category, 'name' | 'icon' | 'color'>>
+    data: Partial<Pick<Category, 'name' | 'icon' | 'color' | 'reminder_settings'>>
   ) => {
     // Optimistic update
     setCategories(prev => prev.map(c => (c.id === id ? { ...c, ...data } : c)));
@@ -84,6 +89,8 @@ export function useCategories(): UseCategoriesReturn {
     if (error) {
       setError(error.message);
       fetch();
+    } else if (Object.prototype.hasOwnProperty.call(data, 'reminder_settings')) {
+      void resyncAllReminderNotifications();
     }
   }, [fetch]);
 
@@ -95,6 +102,8 @@ export function useCategories(): UseCategoriesReturn {
     if (error) {
       setError(error.message);
       fetch();
+    } else {
+      void resyncAllReminderNotifications();
     }
   }, [fetch]);
 

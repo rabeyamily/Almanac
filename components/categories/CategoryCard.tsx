@@ -2,15 +2,16 @@ import React, { useState } from 'react';
 import { View, TouchableOpacity, StyleSheet, TextInput } from 'react-native';
 import { VintageText, VintageButton } from '@/components/ui';
 import { Theme } from '@/constants/theme';
-import { Category } from '@/lib/types';
+import { Category, ReminderSettings } from '@/lib/types';
 import { Colors } from '@/constants/colors';
+import { ReminderEditor } from '@/components/reminders/ReminderEditor';
 
 // Curated icon set — plain text symbols for vintage feel
 export const CATEGORY_ICONS = ['☀', '◈', '▦', '★', '◉', '▶', '◆', '♦', '✦', '⊕', '⊗', '≡', '∞', '◐', '▲', '●'];
 
 interface CategoryCardProps {
   category: Category;
-  onUpdate: (id: string, data: Partial<Pick<Category, 'name' | 'icon' | 'color'>>) => void;
+  onUpdate: (id: string, data: Partial<Pick<Category, 'name' | 'icon' | 'color' | 'reminder_settings'>>) => void;
   onDelete: (id: string) => void;
 }
 
@@ -19,10 +20,11 @@ export function CategoryCard({ category, onUpdate, onDelete }: CategoryCardProps
   const [name, setName] = useState(category.name);
   const [icon, setIcon] = useState(category.icon);
   const [color, setColor] = useState(category.color);
+  const [reminder, setReminder] = useState<ReminderSettings | null>(category.reminder_settings ?? null);
 
   const handleSave = () => {
     if (name.trim()) {
-      onUpdate(category.id, { name: name.trim(), icon, color });
+      onUpdate(category.id, { name: name.trim(), icon, color, reminder_settings: reminder });
       setEditing(false);
     }
   };
@@ -64,6 +66,7 @@ export function CategoryCard({ category, onUpdate, onDelete }: CategoryCardProps
           <VintageButton label="SAVE" onPress={handleSave} size="sm" />
           <VintageButton label="CANCEL" variant="ghost" onPress={() => setEditing(false)} size="sm" />
         </View>
+        <ReminderEditor title="SET REMINDER" value={reminder} onChange={setReminder} />
       </View>
     );
   }

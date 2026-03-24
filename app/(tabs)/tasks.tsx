@@ -5,6 +5,7 @@ import { ScreenLayout, VintageText, Divider, VintageButton } from '@/components/
 import { CategorySection } from '@/components/tasks/CategorySection';
 import { TaskCard } from '@/components/tasks/TaskCard';
 import { AddTaskForm } from '@/components/tasks/AddTaskForm';
+import { EditTaskModal } from '@/components/tasks/EditTaskModal';
 import { useTasks } from '@/hooks/useTasks';
 import { useCategories } from '@/hooks/useCategories';
 import { useSubcategories } from '@/hooks/useSubcategories';
@@ -13,10 +14,11 @@ import { TaskWithStatus } from '@/lib/types';
 
 export default function TasksScreen() {
   const router = useRouter();
-  const { tasks, loading, error, toggleComplete, deleteTask, addTask, toggleHighlight } = useTasks();
+  const { tasks, loading, error, toggleComplete, deleteTask, addTask, reorderTasks, updateTask } = useTasks();
   const { categories } = useCategories();
   const { subcategories } = useSubcategories();
   const [showForm, setShowForm] = useState(false);
+  const [editingTask, setEditingTask] = useState<TaskWithStatus | null>(null);
 
   const completed = tasks.filter(t => t.is_completed).length;
 
@@ -98,7 +100,13 @@ export default function TasksScreen() {
                 </VintageText>
               </View>
               {grouped.uncategorized.map(task => (
-                <TaskCard key={task.id} task={task} onToggle={toggleComplete} onDelete={deleteTask} onToggleHighlight={toggleHighlight} />
+                <TaskCard
+                  key={task.id}
+                  task={task}
+                  onToggle={toggleComplete}
+                  onDelete={deleteTask}
+                  onEdit={setEditingTask}
+                />
               ))}
             </View>
           ) : null}
@@ -112,7 +120,8 @@ export default function TasksScreen() {
               tasks={grouped.byCat[cat.id] ?? []}
               onToggle={toggleComplete}
               onDelete={deleteTask}
-              onToggleHighlight={toggleHighlight}
+              onEdit={setEditingTask}
+              onReorder={reorderTasks}
             />
           ))}
 
@@ -124,7 +133,8 @@ export default function TasksScreen() {
               tasks={[]}
               onToggle={toggleComplete}
               onDelete={deleteTask}
-              onToggleHighlight={toggleHighlight}
+              onEdit={setEditingTask}
+              onReorder={reorderTasks}
             />
           ))}
         </View>
@@ -147,6 +157,15 @@ export default function TasksScreen() {
           style={styles.addBtn}
         />
       )}
+
+      <EditTaskModal
+        visible={!!editingTask}
+        task={editingTask}
+        categories={categories}
+        subcategories={subcategories}
+        onClose={() => setEditingTask(null)}
+        onSave={updateTask}
+      />
     </ScreenLayout>
   );
 }

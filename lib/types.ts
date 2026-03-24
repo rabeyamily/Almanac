@@ -16,6 +16,18 @@ export interface RichTextSegment {
   color?: string | null;
 }
 
+export type ReminderFrequency = 'once' | 'daily' | 'weekdays' | 'custom';
+
+export interface ReminderSettings {
+  enabled: boolean;
+  frequency: ReminderFrequency;
+  date: string | null; // YYYY-MM-DD for one-time reminders
+  time: string | null; // HH:MM
+  custom_days: number[] | null; // 0=Sun … 6=Sat
+  message: string | null;
+  notification_ids?: string[] | null;
+}
+
 // ─── Category ────────────────────────────────────────────────────────────────
 
 export interface Category {
@@ -24,6 +36,7 @@ export interface Category {
   name: string;
   icon: string;
   color: string;
+  reminder_settings: ReminderSettings | null;
   created_at: string;
 }
 
@@ -33,6 +46,7 @@ export interface Subcategory {
   category_id: string;
   name: string;
   color: string | null; // NULL = inherit parent color
+  reminder_settings: ReminderSettings | null;
   created_at: string;
 }
 
@@ -55,7 +69,9 @@ export interface Task {
   scheduled_time: string | null;
   repeat_schedule: RepeatSchedule;
   custom_days: number[] | null;
+  order_index: number;
   highlighted: boolean;
+  reminder_settings: ReminderSettings | null;
   created_at: string;
 }
 

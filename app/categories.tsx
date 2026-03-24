@@ -3,11 +3,12 @@ import { View, StyleSheet, TouchableOpacity, TextInput } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ScreenLayout, VintageText, Divider, VintageButton, VintageInput } from '@/components/ui';
 import { CategoryCard, CATEGORY_ICONS } from '@/components/categories/CategoryCard';
+import { ReminderEditor } from '@/components/reminders/ReminderEditor';
 import { useCategories } from '@/hooks/useCategories';
 import { useSubcategories } from '@/hooks/useSubcategories';
 import { Theme } from '@/constants/theme';
 import { Colors } from '@/constants/colors';
-import { Subcategory } from '@/lib/types';
+import { ReminderSettings } from '@/lib/types';
 
 export default function CategoriesScreen() {
   const router = useRouter();
@@ -15,8 +16,8 @@ export default function CategoriesScreen() {
   const {
     subcategories,
     addSubcategory,
-    updateSubcategory,
     deleteSubcategory,
+    updateSubcategory,
     getForCategory,
   } = useSubcategories();
 
@@ -25,6 +26,7 @@ export default function CategoriesScreen() {
   const [newName, setNewName] = useState('');
   const [newIcon, setNewIcon] = useState(CATEGORY_ICONS[0]);
   const [newColor, setNewColor] = useState<string>(Colors.categoryColors[0]);
+  const [newReminder, setNewReminder] = useState<ReminderSettings | null>(null);
   const [formError, setFormError] = useState('');
 
   // Inline subcategories to add with the new category
@@ -43,7 +45,12 @@ export default function CategoriesScreen() {
 
   const handleAdd = async () => {
     if (!newName.trim()) { setFormError('NAME REQUIRED'); return; }
-    const created = await addCategory({ name: newName.trim(), icon: newIcon, color: newColor });
+    const created = await addCategory({
+      name: newName.trim(),
+      icon: newIcon,
+      color: newColor,
+      reminder_settings: newReminder,
+    });
     if (created) {
       for (const ps of pendingSubs) {
         await addSubcategory({ category_id: created.id, name: ps.name, color: ps.color });
@@ -58,6 +65,7 @@ export default function CategoriesScreen() {
     setNewColor(Colors.categoryColors[0]);
     setShowForm(false);
     setFormError('');
+    setNewReminder(null);
     setPendingSubs([]);
     setPendingSubName('');
   };
@@ -66,13 +74,24 @@ export default function CategoriesScreen() {
   const [addSubForCat, setAddSubForCat] = useState<string | null>(null);
   const [subNameInput, setSubNameInput] = useState('');
   const [subColorInput, setSubColorInput] = useState<string | null>(null);
+  const [subReminderInput, setSubReminderInput] = useState<ReminderSettings | null>(null);
+  const [editingSubId, setEditingSubId] = useState<string | null>(null);
+  const [editSubName, setEditSubName] = useState('');
+  const [editSubColor, setEditSubColor] = useState<string | null>(null);
+  const [editSubReminder, setEditSubReminder] = useState<ReminderSettings | null>(null);
 
   const handleAddSubToExisting = async (categoryId: string) => {
     const trimmed = subNameInput.trim();
     if (!trimmed) return;
-    await addSubcategory({ category_id: categoryId, name: trimmed, color: subColorInput });
+    await addSubcategory({
+      category_id: categoryId,
+      name: trimmed,
+      color: subColorInput,
+      reminder_settings: subReminderInput,
+    });
     setSubNameInput('');
     setSubColorInput(null);
+    setSubReminderInput(null);
     setAddSubForCat(null);
   };
 
@@ -114,22 +133,94 @@ export default function CategoriesScreen() {
               {subs.length > 0 ? (
                 <View style={styles.subList}>
                   {subs.map(sub => (
-                    <View key={sub.id} style={styles.subRow}>
-                      <View style={styles.subRowLeft}>
-                        <VintageText variant="mono" size="xs" color={Theme.colors.muted}>└─</VintageText>
-                        <View
-                          style={[
-                            styles.subColorDot,
-                            { backgroundColor: sub.color ?? cat.color },
-                          ]}
-                        />
-                        <VintageText variant="mono" size="sm" color={Theme.colors.ink}>
-                          {sub.name.toUpperCase()}
-                        </VintageText>
+                    <View key={sub.id} style={styles.subRowWrap}>
+                      <View style={styles.subRow}>
+                        <View style={styles.subRowLeft}>
+                          <VintageText variant="mono" size="xs" color={Theme.colors.muted}>└─</VintageText>
+                          <View
+                            style={[
+                              styles.subColorDot,
+                              { backgroundColor: sub.color ?? cat.color },
+                            ]}
+                          />
+                          <VintageText variant="mono" size="sm" color={Theme.colors.ink}>
+                            {sub.name.toUpperCase()}
+                          </VintageText>
+                        </View>
+                        <View style={styles.subRowActions}>
+                          <TouchableOpacity
+                            onPress={() => {
+                              setEditingSubId(sub.id);
+                              setEditSubName(sub.name);
+                              setEditSubColor(sub.color);
+                              setEditSubReminder(sub.reminder_settings ?? null);
+                            }}
+                            style={styles.subDelete}
+                          >
+                            <VintageText variant="mono" size="sm" color={Theme.colors.muted}>✎</VintageText>
+                          </TouchableOpacity>
+                          <TouchableOpacity onPress={() => deleteSubcategory(sub.id)} style={styles.subDelete}>
+                            <VintageText variant="mono" size="sm" color={Theme.colors.red}>×</VintageText>
+                          </TouchableOpacity>
+                        </View>
                       </View>
-                      <TouchableOpacity onPress={() => deleteSubcategory(sub.id)} style={styles.subDelete}>
-                        <VintageText variant="mono" size="sm" color={Theme.colors.red}>×</VintageText>
-                      </TouchableOpacity>
+
+                      {editingSubId === sub.id ? (
+                        <View style={styles.subEditPanel}>
+                          <TextInput
+                            style={styles.subInput}
+                            value={editSubName}
+                            onChangeText={setEditSubName}
+                            placeholder="Subcategory name..."
+                            placeholderTextColor={Theme.colors.inkFaint}
+                          />
+                          <View style={styles.subColorRow}>
+                            <TouchableOpacity
+                              style={[
+                                styles.subColorOption,
+                                editSubColor === null && styles.subColorOptionActive,
+                              ]}
+                              onPress={() => setEditSubColor(null)}
+                            >
+                              <VintageText variant="mono" size="xs" color={Theme.colors.muted}>INHERIT</VintageText>
+                            </TouchableOpacity>
+                            {Colors.categoryColors.map(c => (
+                              <TouchableOpacity
+                                key={c}
+                                style={[
+                                  styles.miniColorDot,
+                                  { backgroundColor: c },
+                                  editSubColor === c && styles.miniColorDotActive,
+                                ]}
+                                onPress={() => setEditSubColor(c)}
+                              />
+                            ))}
+                          </View>
+                          <ReminderEditor title="SET REMINDER" value={editSubReminder} onChange={setEditSubReminder} />
+                          <View style={styles.subFormActions}>
+                            <VintageButton
+                              label="SAVE"
+                              onPress={async () => {
+                                const trimmed = editSubName.trim();
+                                if (!trimmed) return;
+                                await updateSubcategory(sub.id, {
+                                  name: trimmed,
+                                  color: editSubColor,
+                                  reminder_settings: editSubReminder,
+                                });
+                                setEditingSubId(null);
+                              }}
+                              size="sm"
+                            />
+                            <VintageButton
+                              label="CANCEL"
+                              variant="ghost"
+                              onPress={() => setEditingSubId(null)}
+                              size="sm"
+                            />
+                          </View>
+                        </View>
+                      ) : null}
                     </View>
                   ))}
                 </View>
@@ -168,12 +259,13 @@ export default function CategoriesScreen() {
                       />
                     ))}
                   </View>
+                  <ReminderEditor title="SET REMINDER" value={subReminderInput} onChange={setSubReminderInput} />
                   <View style={styles.subFormActions}>
                     <VintageButton label="ADD" onPress={() => handleAddSubToExisting(cat.id)} size="sm" />
                     <VintageButton
                       label="CANCEL"
                       variant="ghost"
-                      onPress={() => { setAddSubForCat(null); setSubNameInput(''); setSubColorInput(null); }}
+                      onPress={() => { setAddSubForCat(null); setSubNameInput(''); setSubColorInput(null); setSubReminderInput(null); }}
                       size="sm"
                     />
                   </View>
@@ -246,6 +338,7 @@ export default function CategoriesScreen() {
               />
             ))}
           </View>
+          <ReminderEditor title="SET REMINDER" value={newReminder} onChange={setNewReminder} />
 
           {/* Pending subcategories for the new category */}
           <VintageText variant="mono" size="xs" color={Theme.colors.inkFaint} style={styles.pickerLabel}>
@@ -323,10 +416,23 @@ const styles = StyleSheet.create({
     borderColor: Theme.colors.borderLight,
     borderStyle: 'dotted',
   },
+  subRowWrap: {
+    borderBottomWidth: 1,
+    borderColor: Theme.colors.borderLight,
+    borderStyle: 'dotted',
+  },
+  subRowActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   subRowLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Theme.spacing.xs,
+  },
+  subEditPanel: {
+    marginLeft: Theme.spacing.lg,
+    marginBottom: Theme.spacing.xs,
   },
   subColorDot: {
     width: 10,

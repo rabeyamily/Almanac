@@ -94,6 +94,11 @@ export default function HomeScreen() {
                         ✦ {task.category.name.toUpperCase()}
                       </VintageText>
                     ) : null}
+                    {task.subcategory ? (
+                      <VintageText variant="mono" size="xs" color={task.subcategory.color ?? task.category?.color ?? Theme.colors.muted}>
+                        ◈ {task.subcategory.name.toUpperCase()}
+                      </VintageText>
+                    ) : null}
                     <VintageText variant="mono" size="xs" color={Theme.colors.borderLight}>
                       {task.repeat_schedule.toUpperCase()}
                     </VintageText>

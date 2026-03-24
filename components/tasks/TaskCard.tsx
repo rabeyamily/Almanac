@@ -9,10 +9,11 @@ interface TaskCardProps {
   task: TaskWithStatus;
   onToggle: (id: string, completed: boolean) => void;
   onDelete: (id: string) => void;
-  onToggleHighlight?: (id: string, highlighted: boolean) => void;
+  onPressDrag?: () => void;
+  onEdit?: (task: TaskWithStatus) => void;
 }
 
-export function TaskCard({ task, onToggle, onDelete, onToggleHighlight }: TaskCardProps) {
+export function TaskCard({ task, onToggle, onDelete, onPressDrag, onEdit }: TaskCardProps) {
   const handleToggle = () => onToggle(task.id, !task.is_completed);
 
   const hasRichText = task.rich_text_name && task.rich_text_name.length > 0;
@@ -30,10 +31,12 @@ export function TaskCard({ task, onToggle, onDelete, onToggleHighlight }: TaskCa
         </View>
       ) : null}
 
-      {/* Highlight indicator */}
-      {task.highlighted ? (
-        <View style={styles.highlightStripe} />
-      ) : null}
+      {task.highlighted ? <View style={styles.highlightStripe} /> : null}
+
+      {/* Drag handle */}
+      <TouchableOpacity style={styles.dragHandle} onLongPress={onPressDrag} delayLongPress={100}>
+        <VintageText variant="mono" size="xs" color={Theme.colors.muted}>⠿</VintageText>
+      </TouchableOpacity>
 
       {/* Checkbox */}
       <TouchableOpacity style={styles.checkArea} onPress={handleToggle} activeOpacity={0.7}>
@@ -46,69 +49,40 @@ export function TaskCard({ task, onToggle, onDelete, onToggleHighlight }: TaskCa
         </View>
       </TouchableOpacity>
 
-      {/* Content */}
-      <TouchableOpacity style={styles.content} onPress={handleToggle} activeOpacity={0.8}>
-        <View style={styles.nameRow}>
-          {hasRichText ? (
-            <RichTextRenderer segments={task.rich_text_name!} dimmed={task.is_completed} />
-          ) : (
-            <VintageText
-              variant="mono"
-              size="md"
-              color={task.is_completed ? Theme.colors.muted : Theme.colors.ink}
-            >
-              {task.name}
-            </VintageText>
-          )}
-        </View>
-
-        {/* Tags row */}
-        <View style={styles.tags}>
-          {task.highlighted ? (
-            <View style={styles.pinTag}>
-              <VintageText variant="mono" size="xs" color={Theme.colors.gold}>★ PINNED</VintageText>
-            </View>
-          ) : null}
-          {task.category ? (
-            <View style={[styles.tag, { borderColor: task.category.color }]}>
-              <VintageText variant="mono" size="xs" color={task.category.color}>
-                ✦ {task.category.name.toUpperCase()}
+      {/* Content (single-line lean row) */}
+      <TouchableOpacity style={styles.content} onPress={handleToggle} onLongPress={() => onEdit?.(task)} activeOpacity={0.8}>
+        <View style={styles.line}>
+          <View style={styles.nameWrap}>
+            {hasRichText ? (
+              <RichTextRenderer segments={task.rich_text_name!} dimmed={task.is_completed} />
+            ) : (
+              <VintageText
+                variant="mono"
+                size="sm"
+                color={task.is_completed ? Theme.colors.muted : Theme.colors.ink}
+                numberOfLines={1}
+              >
+                {task.name}
               </VintageText>
-            </View>
-          ) : null}
-          {task.subcategory ? (
-            <View style={[styles.tag, { borderColor: task.subcategory.color ?? task.category?.color ?? Theme.colors.border }]}>
-              <VintageText variant="mono" size="xs" color={task.subcategory.color ?? task.category?.color ?? Theme.colors.muted}>
-                ◈ {task.subcategory.name.toUpperCase()}
-              </VintageText>
-            </View>
-          ) : null}
-          {task.scheduled_time ? (
-            <VintageText variant="mono" size="xs" color={Theme.colors.muted}>
-              ◷ {task.scheduled_time}
+            )}
+          </View>
+          <View style={styles.metaCompact}>
+            <VintageText variant="mono" size="xs" color={Theme.colors.borderLight}>
+              {task.repeat_schedule.toUpperCase()}
             </VintageText>
-          ) : null}
-          <VintageText variant="mono" size="xs" color={Theme.colors.borderLight}>
-            {task.repeat_schedule.toUpperCase()}
-          </VintageText>
+            {task.scheduled_time ? (
+              <VintageText variant="mono" size="xs" color={Theme.colors.muted}>
+                ◷ {task.scheduled_time}
+              </VintageText>
+            ) : null}
+          </View>
         </View>
       </TouchableOpacity>
 
       {/* Action buttons */}
       <View style={styles.actions}>
-        {onToggleHighlight ? (
-          <TouchableOpacity
-            style={styles.actionBtn}
-            onPress={() => onToggleHighlight(task.id, !task.highlighted)}
-            activeOpacity={0.7}
-          >
-            <VintageText variant="mono" size="md" color={task.highlighted ? Theme.colors.gold : Theme.colors.borderLight}>
-              ★
-            </VintageText>
-          </TouchableOpacity>
-        ) : null}
         <TouchableOpacity style={styles.actionBtn} onPress={() => onDelete(task.id)} activeOpacity={0.7}>
-          <VintageText variant="mono" size="md" color={Theme.colors.muted}>
+          <VintageText variant="mono" size="sm" color={Theme.colors.muted}>
             ×
           </VintageText>
         </TouchableOpacity>
@@ -123,11 +97,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: Theme.borderWidth.thin,
     borderColor: Theme.colors.borderLight,
-    marginBottom: Theme.spacing.sm,
+    marginBottom: Theme.spacing.xs,
     backgroundColor: Theme.colors.surface,
-    paddingVertical: Theme.spacing.sm,
-    paddingHorizontal: Theme.spacing.sm,
-    gap: Theme.spacing.sm,
+    paddingVertical: 8,
+    paddingHorizontal: 6,
+    gap: 6,
     position: 'relative',
     overflow: 'hidden',
   },
@@ -165,14 +139,20 @@ const styles = StyleSheet.create({
   stampText: {
     letterSpacing: 6,
   },
+  dragHandle: {
+    paddingHorizontal: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 11,
+  },
   checkArea: {
-    padding: 2,
+    padding: 0,
     zIndex: 11,
   },
   checkbox: {
-    width: 24,
-    height: 24,
-    borderWidth: Theme.borderWidth.normal,
+    width: 20,
+    height: 20,
+    borderWidth: 1,
     borderColor: Theme.colors.border,
     alignItems: 'center',
     justifyContent: 'center',
@@ -186,33 +166,27 @@ const styles = StyleSheet.create({
     flex: 1,
     zIndex: 11,
   },
-  nameRow: {
-    marginBottom: 4,
-  },
-  tags: {
+  line: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Theme.spacing.xs,
     alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
   },
-  tag: {
-    borderWidth: 1,
-    paddingHorizontal: Theme.spacing.xs,
-    paddingVertical: 1,
+  nameWrap: {
+    flex: 1,
   },
-  pinTag: {
-    borderWidth: 1,
-    borderColor: Theme.colors.gold,
-    paddingHorizontal: Theme.spacing.xs,
-    paddingVertical: 1,
-    backgroundColor: Theme.colors.goldLight + '30',
+  metaCompact: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   actions: {
     alignItems: 'center',
-    gap: 2,
+    gap: 0,
     zIndex: 11,
   },
   actionBtn: {
-    padding: Theme.spacing.xs,
+    paddingHorizontal: 2,
+    paddingVertical: 1,
   },
 });

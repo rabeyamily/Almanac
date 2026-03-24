@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS subcategories (
   category_id UUID NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
   name        TEXT NOT NULL,
   color       TEXT,  -- NULL = inherit parent category color
+  reminder_settings JSONB,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -36,9 +37,18 @@ ALTER TABLE tasks
 ALTER TABLE tasks
   ADD COLUMN IF NOT EXISTS rich_text_name JSONB;
 
+ALTER TABLE tasks
+  ADD COLUMN IF NOT EXISTS order_index INTEGER NOT NULL DEFAULT 0;
+
 -- ─── HIGHLIGHTED (pinned) TASKS ─────────────────────────────
 ALTER TABLE tasks
   ADD COLUMN IF NOT EXISTS highlighted BOOLEAN NOT NULL DEFAULT false;
+
+ALTER TABLE tasks
+  ADD COLUMN IF NOT EXISTS reminder_settings JSONB;
+
+ALTER TABLE categories
+  ADD COLUMN IF NOT EXISTS reminder_settings JSONB;
 
 -- ─── REALTIME ───────────────────────────────────────────────
 DO $$
