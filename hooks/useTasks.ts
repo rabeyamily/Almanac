@@ -14,12 +14,14 @@ interface UseTasksReturn {
   toggleComplete: (taskId: string, isCompleted: boolean) => Promise<void>;
 }
 
-export function useTasks(date: Date = new Date()): UseTasksReturn {
+export function useTasks(date?: Date): UseTasksReturn {
   const [tasks, setTasks] = useState<TaskWithStatus[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const dateKey = toDateKey(date);
+  const activeDate = date ?? new Date();
+  const dateKey = toDateKey(activeDate);
+  const dayOfWeek = activeDate.getDay();
 
   const fetch = useCallback(async () => {
     setLoading(true);
@@ -39,7 +41,6 @@ export function useTasks(date: Date = new Date()): UseTasksReturn {
     const completedIds = new Set((compRes.data ?? []).map((c: TaskCompletion) => c.task_id));
 
     // Filter tasks that apply to this day
-    const dayOfWeek = date.getDay();
     const hydrated: TaskWithStatus[] = (taskRes.data ?? [])
       .filter((t: Task) => {
         if (t.repeat_schedule === 'none') return true; // always show
@@ -58,7 +59,7 @@ export function useTasks(date: Date = new Date()): UseTasksReturn {
     setTasks(hydrated);
     setError(null);
     setLoading(false);
-  }, [dateKey, date]);
+  }, [dateKey, dayOfWeek]);
 
   useEffect(() => {
     fetch();

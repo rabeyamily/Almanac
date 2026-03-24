@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { useRouter } from 'expo-router';
 import { ScreenLayout, VintageText, Divider, VintageButton } from '@/components/ui';
 import { TaskItem } from '@/components/tasks/TaskItem';
 import { AddTaskForm } from '@/components/tasks/AddTaskForm';
@@ -8,6 +9,7 @@ import { useCategories } from '@/hooks/useCategories';
 import { Theme } from '@/constants/theme';
 
 export default function TasksScreen() {
+  const router = useRouter();
   const { tasks, loading, toggleComplete, deleteTask, addTask } = useTasks();
   const { categories } = useCategories();
   const [showForm, setShowForm] = useState(false);
@@ -34,8 +36,8 @@ export default function TasksScreen() {
       <Divider marginVertical={Theme.spacing.sm} />
 
       {/* Category filter pills */}
-      {categories.length > 0 && (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll}>
+      {categories.length > 0 ? (
+        <View style={styles.filterWrap}>
           <TouchableOpacity
             style={[styles.filterChip, !filterCatId && styles.filterChipActive]}
             onPress={() => setFilterCatId(null)}
@@ -63,8 +65,21 @@ export default function TasksScreen() {
               </VintageText>
             </TouchableOpacity>
           ))}
-        </ScrollView>
+        </View>
+      ) : (
+        <VintageText variant="mono" size="xs" color={Theme.colors.muted} style={styles.noCategoryText}>
+          NO CATEGORIES YET
+        </VintageText>
       )}
+
+      <View style={styles.categoryActions}>
+        <VintageButton
+          label="+ ADD CATEGORY"
+          variant="ghost"
+          size="sm"
+          onPress={() => router.push('/categories')}
+        />
+      </View>
 
       {/* Tasks list */}
       {loading ? (
@@ -114,20 +129,33 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  filterScroll: {
-    marginBottom: Theme.spacing.md,
+  filterWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: Theme.spacing.xs,
+    marginBottom: Theme.spacing.sm,
   },
   filterChip: {
     borderWidth: 1,
     borderColor: Theme.colors.border,
     paddingHorizontal: Theme.spacing.sm,
     paddingVertical: Theme.spacing.xs,
-    marginRight: Theme.spacing.xs,
     backgroundColor: Theme.colors.paper,
+    minHeight: 32,
+    justifyContent: 'center',
   },
   filterChipActive: {
     backgroundColor: Theme.colors.ink,
     borderColor: Theme.colors.ink,
+  },
+  noCategoryText: {
+    marginBottom: Theme.spacing.sm,
+    letterSpacing: 1,
+  },
+  categoryActions: {
+    marginBottom: Theme.spacing.md,
+    alignItems: 'flex-start',
   },
   list: {
     marginBottom: Theme.spacing.md,
