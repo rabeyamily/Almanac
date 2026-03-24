@@ -1,12 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
 import { VintageText, VintageInput, VintageButton, VintageBox, Divider } from '@/components/ui';
+import { RichTextEditor } from './RichTextEditor';
 import { Theme } from '@/constants/theme';
-import { Category, RepeatSchedule, Task } from '@/lib/types';
+import { Category, Subcategory, RepeatSchedule, Task, RichTextSegment } from '@/lib/types';
 
 interface AddTaskFormProps {
   categories: Category[];
-  onSave: (data: Omit<Task, 'id' | 'user_id' | 'created_at'>) => Promise<void>;
+  subcategories: Subcategory[];
+  onSave: (data: Omit<Task, 'id' | 'user_id' | 'created_at'>) => Promise<boolean>;
   onClose: () => void;
 }
 
@@ -19,30 +21,41 @@ const REPEAT_OPTIONS: { label: string; value: RepeatSchedule }[] = [
 
 const DAY_LABELS = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];
 
-export function AddTaskForm({ categories, onSave, onClose }: AddTaskFormProps) {
-  const [name, setName] = useState('');
+export function AddTaskForm({ categories, subcategories, onSave, onClose }: AddTaskFormProps) {
+  const [richSegments, setRichSegments] = useState<RichTextSegment[]>([]);
   const [categoryId, setCategoryId] = useState<string | null>(null);
+  const [subcategoryId, setSubcategoryId] = useState<string | null>(null);
   const [scheduledTime, setScheduledTime] = useState('');
   const [repeat, setRepeat] = useState<RepeatSchedule>('daily');
   const [customDays, setCustomDays] = useState<number[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
+  const availableSubs = useMemo(
+    () => categoryId ? subcategories.filter(s => s.category_id === categoryId) : [],
+    [categoryId, subcategories]
+  );
+
   const toggleDay = (d: number) =>
     setCustomDays(prev => prev.includes(d) ? prev.filter(x => x !== d) : [...prev, d]);
 
   const handleSave = async () => {
-    if (!name.trim()) { setError('NAME REQUIRED'); return; }
+    const plainName = richSegments.map(s => s.text).join('').trim();
+    if (!plainName) { setError('NAME REQUIRED'); return; }
     setSaving(true);
-    await onSave({
-      name: name.trim(),
+    const ok = await onSave({
+      name: plainName,
+      rich_text_name: richSegments.length > 0 ? richSegments : null,
       category_id: categoryId,
+      subcategory_id: subcategoryId,
       scheduled_time: scheduledTime || null,
       repeat_schedule: repeat,
       custom_days: repeat === 'custom' ? customDays : null,
+      highlighted: false,
     });
     setSaving(false);
-    onClose();
+    if (ok) onClose();
+    else setError('FAILED TO SAVE TASK');
   };
 
   return (
@@ -52,14 +65,21 @@ export function AddTaskForm({ categories, onSave, onClose }: AddTaskFormProps) {
       </VintageText>
       <Divider marginVertical={Theme.spacing.sm} />
 
-      <VintageInput
-        label="Task Name"
-        value={name}
-        onChangeText={t => { setName(t); setError(''); }}
+      {/* Rich text task name */}
+      <VintageText variant="mono" size="xs" color={Theme.colors.inkFaint} style={styles.pickerLabel}>
+        TASK NAME
+      </VintageText>
+      <RichTextEditor
+        segments={richSegments}
+        onChangeSegments={(segs) => { setRichSegments(segs); setError(''); }}
         placeholder="e.g. Morning Jog..."
-        error={error}
         autoFocus
       />
+      {error ? (
+        <VintageText variant="mono" size="xs" color={Theme.colors.red} style={styles.errorText}>
+          {error}
+        </VintageText>
+      ) : null}
 
       <VintageInput
         label="Time (optional)"
@@ -77,7 +97,7 @@ export function AddTaskForm({ categories, onSave, onClose }: AddTaskFormProps) {
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.catScroll}>
         <TouchableOpacity
           style={[styles.catChip, !categoryId && styles.catChipActive]}
-          onPress={() => setCategoryId(null)}
+          onPress={() => { setCategoryId(null); setSubcategoryId(null); }}
         >
           <VintageText variant="mono" size="xs" color={!categoryId ? Theme.colors.paper : Theme.colors.ink}>
             NONE
@@ -87,7 +107,7 @@ export function AddTaskForm({ categories, onSave, onClose }: AddTaskFormProps) {
           <TouchableOpacity
             key={cat.id}
             style={[styles.catChip, categoryId === cat.id && { backgroundColor: cat.color, borderColor: cat.color }]}
-            onPress={() => setCategoryId(cat.id)}
+            onPress={() => { setCategoryId(cat.id); setSubcategoryId(null); }}
           >
             <VintageText variant="mono" size="xs" color={categoryId === cat.id ? Theme.colors.paper : cat.color}>
               {cat.icon} {cat.name.toUpperCase()}
@@ -95,6 +115,39 @@ export function AddTaskForm({ categories, onSave, onClose }: AddTaskFormProps) {
           </TouchableOpacity>
         ))}
       </ScrollView>
+
+      {/* Subcategory picker (shown only when a category is selected and has subs) */}
+      {availableSubs.length > 0 ? (
+        <>
+          <VintageText variant="mono" size="xs" color={Theme.colors.inkFaint} style={styles.pickerLabel}>
+            SUBCATEGORY
+          </VintageText>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.catScroll}>
+            <TouchableOpacity
+              style={[styles.catChip, !subcategoryId && styles.catChipActive]}
+              onPress={() => setSubcategoryId(null)}
+            >
+              <VintageText variant="mono" size="xs" color={!subcategoryId ? Theme.colors.paper : Theme.colors.ink}>
+                NONE
+              </VintageText>
+            </TouchableOpacity>
+            {availableSubs.map(sub => {
+              const color = sub.color ?? categories.find(c => c.id === sub.category_id)?.color ?? Theme.colors.muted;
+              return (
+                <TouchableOpacity
+                  key={sub.id}
+                  style={[styles.catChip, subcategoryId === sub.id && { backgroundColor: color, borderColor: color }]}
+                  onPress={() => setSubcategoryId(sub.id)}
+                >
+                  <VintageText variant="mono" size="xs" color={subcategoryId === sub.id ? Theme.colors.paper : color}>
+                    ◈ {sub.name.toUpperCase()}
+                  </VintageText>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </>
+      ) : null}
 
       {/* Repeat schedule */}
       <VintageText variant="mono" size="xs" color={Theme.colors.inkFaint} style={styles.pickerLabel}>
@@ -118,8 +171,7 @@ export function AddTaskForm({ categories, onSave, onClose }: AddTaskFormProps) {
         ))}
       </View>
 
-      {/* Custom day picker */}
-      {repeat === 'custom' && (
+      {repeat === 'custom' ? (
         <View style={styles.daysRow}>
           {DAY_LABELS.map((d, i) => (
             <TouchableOpacity
@@ -137,7 +189,7 @@ export function AddTaskForm({ categories, onSave, onClose }: AddTaskFormProps) {
             </TouchableOpacity>
           ))}
         </View>
-      )}
+      ) : null}
 
       <Divider marginVertical={Theme.spacing.sm} />
       <View style={styles.actions}>
@@ -159,6 +211,10 @@ const styles = StyleSheet.create({
   pickerLabel: {
     letterSpacing: 1,
     marginTop: Theme.spacing.sm,
+    marginBottom: 4,
+  },
+  errorText: {
+    marginTop: -4,
     marginBottom: 4,
   },
   catScroll: {

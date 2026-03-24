@@ -2,7 +2,6 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import Animated, {
   useSharedValue,
-  useAnimatedStyle,
   withRepeat,
   withSequence,
   withTiming,
@@ -26,9 +25,6 @@ export function CountdownTimer({ sessionName, durationSeconds, onComplete, onRes
   const [remaining, setRemaining] = useState(durationSeconds);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const blinkOpacity = useSharedValue(1);
-
-  // Blinking colon animation when running
-  const blinkStyle = useAnimatedStyle(() => ({ opacity: blinkOpacity.value }));
 
   const start = useCallback(() => {
     setState('running');
@@ -76,9 +72,10 @@ export function CountdownTimer({ sessionName, durationSeconds, onComplete, onRes
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, []);
 
-  const percentage = durationSeconds > 0 ? ((durationSeconds - remaining) / durationSeconds) * 100 : 0;
+  const rawPct = durationSeconds > 0 ? ((durationSeconds - remaining) / durationSeconds) * 100 : 0;
+  const percentage = Math.max(0, Math.min(100, rawPct));
   const BAR_LENGTH = 24;
-  const filled = Math.round((percentage / 100) * BAR_LENGTH);
+  const filled = Math.max(0, Math.min(BAR_LENGTH, Math.round((percentage / 100) * BAR_LENGTH)));
   const progressBar = '▓'.repeat(filled) + '░'.repeat(BAR_LENGTH - filled);
 
   return (
@@ -89,7 +86,7 @@ export function CountdownTimer({ sessionName, durationSeconds, onComplete, onRes
       </VintageText>
 
       {/* Big timer display */}
-      <Animated.View style={[styles.timerDisplay, blinkStyle]}>
+      <Animated.View style={[styles.timerDisplay, { opacity: blinkOpacity }]}>
         <VintageText variant="pixel" size="xl" color={
           state === 'finished' ? Theme.colors.green :
           remaining < 60 ? Theme.colors.red : Theme.colors.ink

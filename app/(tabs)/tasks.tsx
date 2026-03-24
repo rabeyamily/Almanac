@@ -1,112 +1,140 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ScreenLayout, VintageText, Divider, VintageButton } from '@/components/ui';
-import { TaskItem } from '@/components/tasks/TaskItem';
+import { CategorySection } from '@/components/tasks/CategorySection';
+import { TaskCard } from '@/components/tasks/TaskCard';
 import { AddTaskForm } from '@/components/tasks/AddTaskForm';
 import { useTasks } from '@/hooks/useTasks';
 import { useCategories } from '@/hooks/useCategories';
+import { useSubcategories } from '@/hooks/useSubcategories';
 import { Theme } from '@/constants/theme';
+import { TaskWithStatus } from '@/lib/types';
 
 export default function TasksScreen() {
   const router = useRouter();
-  const { tasks, loading, toggleComplete, deleteTask, addTask } = useTasks();
+  const { tasks, loading, error, toggleComplete, deleteTask, addTask, toggleHighlight } = useTasks();
   const { categories } = useCategories();
+  const { subcategories } = useSubcategories();
   const [showForm, setShowForm] = useState(false);
-  const [filterCatId, setFilterCatId] = useState<string | null>(null);
-
-  const filtered = filterCatId
-    ? tasks.filter(t => t.category_id === filterCatId)
-    : tasks;
 
   const completed = tasks.filter(t => t.is_completed).length;
 
+  // Group tasks by category
+  const grouped = useMemo(() => {
+    const byCat: Record<string, TaskWithStatus[]> = {};
+    const uncategorized: TaskWithStatus[] = [];
+
+    tasks.forEach(t => {
+      if (t.category_id) {
+        if (!byCat[t.category_id]) byCat[t.category_id] = [];
+        byCat[t.category_id].push(t);
+      } else {
+        uncategorized.push(t);
+      }
+    });
+
+    return { byCat, uncategorized };
+  }, [tasks]);
+
+  // Categories that have at least one task
+  const activeCats = useMemo(() => {
+    const catIds = new Set(Object.keys(grouped.byCat));
+    return categories.filter(c => catIds.has(c.id));
+  }, [categories, grouped.byCat]);
+
+  // Categories with no tasks (show them collapsed at the end)
+  const emptyCats = useMemo(() => {
+    const catIds = new Set(Object.keys(grouped.byCat));
+    return categories.filter(c => !catIds.has(c.id));
+  }, [categories, grouped.byCat]);
+
   return (
     <ScreenLayout>
-      {/* Header */}
+      {/* ALL header with progress and + button */}
       <View style={styles.header}>
-        <VintageText variant="pixel" size="sm" color={Theme.colors.ink}>
-          DAILY TASKS
-        </VintageText>
-        <VintageText variant="mono" size="xs" color={Theme.colors.muted}>
-          {completed}/{tasks.length} DONE
-        </VintageText>
+        <View style={styles.headerLeft}>
+          <VintageText variant="pixel" size="sm" color={Theme.colors.ink}>
+            DAILY TASKS
+          </VintageText>
+          <VintageText variant="mono" size="xs" color={Theme.colors.muted}>
+            {completed}/{tasks.length} DONE
+          </VintageText>
+        </View>
+        <TouchableOpacity
+          style={styles.addCatBtn}
+          onPress={() => router.push('/categories')}
+          activeOpacity={0.7}
+        >
+          <VintageText variant="mono" size="lg" color={Theme.colors.gold}>
+            +
+          </VintageText>
+        </TouchableOpacity>
       </View>
 
       <Divider marginVertical={Theme.spacing.sm} />
-
-      {/* Category filter pills */}
-      {categories.length > 0 ? (
-        <View style={styles.filterWrap}>
-          <TouchableOpacity
-            style={[styles.filterChip, !filterCatId && styles.filterChipActive]}
-            onPress={() => setFilterCatId(null)}
-          >
-            <VintageText variant="mono" size="xs" color={!filterCatId ? Theme.colors.paper : Theme.colors.ink}>
-              ALL
-            </VintageText>
-          </TouchableOpacity>
-          {categories.map(cat => (
-            <TouchableOpacity
-              key={cat.id}
-              style={[
-                styles.filterChip,
-                { borderColor: cat.color },
-                filterCatId === cat.id && { backgroundColor: cat.color },
-              ]}
-              onPress={() => setFilterCatId(filterCatId === cat.id ? null : cat.id)}
-            >
-              <VintageText
-                variant="mono"
-                size="xs"
-                color={filterCatId === cat.id ? Theme.colors.paper : cat.color}
-              >
-                {cat.icon} {cat.name.toUpperCase()}
-              </VintageText>
-            </TouchableOpacity>
-          ))}
-        </View>
-      ) : (
-        <VintageText variant="mono" size="xs" color={Theme.colors.muted} style={styles.noCategoryText}>
-          NO CATEGORIES YET
+      {error ? (
+        <VintageText variant="mono" size="xs" color={Theme.colors.red} style={styles.errorText}>
+          {error.toUpperCase()}
         </VintageText>
-      )}
+      ) : null}
 
-      <View style={styles.categoryActions}>
-        <VintageButton
-          label="+ ADD CATEGORY"
-          variant="ghost"
-          size="sm"
-          onPress={() => router.push('/categories')}
-        />
-      </View>
-
-      {/* Tasks list */}
       {loading ? (
         <VintageText variant="mono" size="sm" color={Theme.colors.muted} align="center" style={styles.empty}>
           LOADING...
         </VintageText>
-      ) : filtered.length === 0 ? (
+      ) : tasks.length === 0 ? (
         <VintageText variant="mono" size="sm" color={Theme.colors.muted} align="center" style={styles.empty}>
-          {filterCatId ? 'NO TASKS IN THIS CATEGORY' : 'NO TASKS YET — ADD ONE BELOW'}
+          NO TASKS YET — ADD ONE BELOW
         </VintageText>
       ) : (
-        <View style={styles.list}>
-          {filtered.map(task => (
-            <TaskItem
-              key={task.id}
-              task={task}
-              onToggle={(id, done) => toggleComplete(id, done)}
+        <View style={styles.sections}>
+          {/* Uncategorized tasks first */}
+          {grouped.uncategorized.length > 0 ? (
+            <View style={styles.uncatSection}>
+              <View style={styles.uncatHeader}>
+                <VintageText variant="mono" size="xs" color={Theme.colors.muted} style={styles.uncatLabel}>
+                  ─ UNCATEGORIZED
+                </VintageText>
+              </View>
+              {grouped.uncategorized.map(task => (
+                <TaskCard key={task.id} task={task} onToggle={toggleComplete} onDelete={deleteTask} onToggleHighlight={toggleHighlight} />
+              ))}
+            </View>
+          ) : null}
+
+          {/* Category sections with tasks */}
+          {activeCats.map(cat => (
+            <CategorySection
+              key={cat.id}
+              category={cat}
+              subcategories={subcategories.filter(s => s.category_id === cat.id)}
+              tasks={grouped.byCat[cat.id] ?? []}
+              onToggle={toggleComplete}
               onDelete={deleteTask}
+              onToggleHighlight={toggleHighlight}
+            />
+          ))}
+
+          {emptyCats.map(cat => (
+            <CategorySection
+              key={cat.id}
+              category={cat}
+              subcategories={subcategories.filter(s => s.category_id === cat.id)}
+              tasks={[]}
+              onToggle={toggleComplete}
+              onDelete={deleteTask}
+              onToggleHighlight={toggleHighlight}
             />
           ))}
         </View>
       )}
 
-      {/* Add task */}
+      {/* Add task form / button */}
       {showForm ? (
         <AddTaskForm
           categories={categories}
+          subcategories={subcategories}
           onSave={addTask}
           onClose={() => setShowForm(false)}
         />
@@ -129,40 +157,43 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  filterWrap: {
+  headerLeft: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     alignItems: 'center',
-    gap: Theme.spacing.xs,
-    marginBottom: Theme.spacing.sm,
+    gap: Theme.spacing.sm,
   },
-  filterChip: {
+  addCatBtn: {
+    width: 32,
+    height: 32,
     borderWidth: 1,
-    borderColor: Theme.colors.border,
-    paddingHorizontal: Theme.spacing.sm,
-    paddingVertical: Theme.spacing.xs,
-    backgroundColor: Theme.colors.paper,
-    minHeight: 32,
+    borderColor: Theme.colors.gold,
+    alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: Theme.colors.paper,
   },
-  filterChipActive: {
-    backgroundColor: Theme.colors.ink,
-    borderColor: Theme.colors.ink,
+  sections: {
+    marginBottom: Theme.spacing.md,
   },
-  noCategoryText: {
+  uncatSection: {
+    marginBottom: Theme.spacing.md,
+  },
+  uncatHeader: {
+    paddingVertical: Theme.spacing.xs,
     marginBottom: Theme.spacing.sm,
-    letterSpacing: 1,
+    borderBottomWidth: 1,
+    borderColor: Theme.colors.borderLight,
+    borderStyle: 'dotted',
   },
-  categoryActions: {
-    marginBottom: Theme.spacing.md,
-    alignItems: 'flex-start',
-  },
-  list: {
-    marginBottom: Theme.spacing.md,
+  uncatLabel: {
+    letterSpacing: 2,
   },
   empty: {
     marginVertical: Theme.spacing.xl,
     letterSpacing: 2,
+  },
+  errorText: {
+    marginBottom: Theme.spacing.sm,
+    letterSpacing: 0.5,
   },
   addBtn: {
     marginTop: Theme.spacing.md,

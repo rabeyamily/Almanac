@@ -1,29 +1,79 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, TextInput } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ScreenLayout, VintageText, Divider, VintageButton, VintageInput } from '@/components/ui';
 import { CategoryCard, CATEGORY_ICONS } from '@/components/categories/CategoryCard';
 import { useCategories } from '@/hooks/useCategories';
+import { useSubcategories } from '@/hooks/useSubcategories';
 import { Theme } from '@/constants/theme';
 import { Colors } from '@/constants/colors';
+import { Subcategory } from '@/lib/types';
 
 export default function CategoriesScreen() {
   const router = useRouter();
   const { categories, loading, addCategory, updateCategory, deleteCategory } = useCategories();
+  const {
+    subcategories,
+    addSubcategory,
+    updateSubcategory,
+    deleteSubcategory,
+    getForCategory,
+  } = useSubcategories();
+
+  // ─── New category form state ──────────────────────────
   const [showForm, setShowForm] = useState(false);
   const [newName, setNewName] = useState('');
   const [newIcon, setNewIcon] = useState(CATEGORY_ICONS[0]);
   const [newColor, setNewColor] = useState<string>(Colors.categoryColors[0]);
   const [formError, setFormError] = useState('');
 
+  // Inline subcategories to add with the new category
+  const [pendingSubs, setPendingSubs] = useState<{ name: string; color: string | null }[]>([]);
+  const [pendingSubName, setPendingSubName] = useState('');
+
+  const addPendingSub = () => {
+    const trimmed = pendingSubName.trim();
+    if (!trimmed) return;
+    setPendingSubs(prev => [...prev, { name: trimmed, color: null }]);
+    setPendingSubName('');
+  };
+
+  const removePendingSub = (idx: number) =>
+    setPendingSubs(prev => prev.filter((_, i) => i !== idx));
+
   const handleAdd = async () => {
     if (!newName.trim()) { setFormError('NAME REQUIRED'); return; }
-    await addCategory({ name: newName.trim(), icon: newIcon, color: newColor });
+    const created = await addCategory({ name: newName.trim(), icon: newIcon, color: newColor });
+    if (created) {
+      for (const ps of pendingSubs) {
+        await addSubcategory({ category_id: created.id, name: ps.name, color: ps.color });
+      }
+    }
+    resetForm();
+  };
+
+  const resetForm = () => {
     setNewName('');
     setNewIcon(CATEGORY_ICONS[0]);
     setNewColor(Colors.categoryColors[0]);
     setShowForm(false);
     setFormError('');
+    setPendingSubs([]);
+    setPendingSubName('');
+  };
+
+  // ─── Inline add-subcategory state per category ────────
+  const [addSubForCat, setAddSubForCat] = useState<string | null>(null);
+  const [subNameInput, setSubNameInput] = useState('');
+  const [subColorInput, setSubColorInput] = useState<string | null>(null);
+
+  const handleAddSubToExisting = async (categoryId: string) => {
+    const trimmed = subNameInput.trim();
+    if (!trimmed) return;
+    await addSubcategory({ category_id: categoryId, name: trimmed, color: subColorInput });
+    setSubNameInput('');
+    setSubColorInput(null);
+    setAddSubForCat(null);
   };
 
   return (
@@ -50,14 +100,97 @@ export default function CategoriesScreen() {
           NO CATEGORIES YET
         </VintageText>
       ) : (
-        categories.map(cat => (
-          <CategoryCard
-            key={cat.id}
-            category={cat}
-            onUpdate={updateCategory}
-            onDelete={deleteCategory}
-          />
-        ))
+        categories.map(cat => {
+          const subs = getForCategory(cat.id);
+          return (
+            <View key={cat.id} style={styles.catBlock}>
+              <CategoryCard
+                category={cat}
+                onUpdate={updateCategory}
+                onDelete={deleteCategory}
+              />
+
+              {/* Existing subcategories */}
+              {subs.length > 0 ? (
+                <View style={styles.subList}>
+                  {subs.map(sub => (
+                    <View key={sub.id} style={styles.subRow}>
+                      <View style={styles.subRowLeft}>
+                        <VintageText variant="mono" size="xs" color={Theme.colors.muted}>└─</VintageText>
+                        <View
+                          style={[
+                            styles.subColorDot,
+                            { backgroundColor: sub.color ?? cat.color },
+                          ]}
+                        />
+                        <VintageText variant="mono" size="sm" color={Theme.colors.ink}>
+                          {sub.name.toUpperCase()}
+                        </VintageText>
+                      </View>
+                      <TouchableOpacity onPress={() => deleteSubcategory(sub.id)} style={styles.subDelete}>
+                        <VintageText variant="mono" size="sm" color={Theme.colors.red}>×</VintageText>
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </View>
+              ) : null}
+
+              {/* Add subcategory inline */}
+              {addSubForCat === cat.id ? (
+                <View style={styles.addSubForm}>
+                  <TextInput
+                    style={styles.subInput}
+                    value={subNameInput}
+                    onChangeText={setSubNameInput}
+                    placeholder="Subcategory name..."
+                    placeholderTextColor={Theme.colors.inkFaint}
+                    autoFocus
+                  />
+                  <View style={styles.subColorRow}>
+                    <TouchableOpacity
+                      style={[
+                        styles.subColorOption,
+                        subColorInput === null && styles.subColorOptionActive,
+                      ]}
+                      onPress={() => setSubColorInput(null)}
+                    >
+                      <VintageText variant="mono" size="xs" color={Theme.colors.muted}>INHERIT</VintageText>
+                    </TouchableOpacity>
+                    {Colors.categoryColors.map(c => (
+                      <TouchableOpacity
+                        key={c}
+                        style={[
+                          styles.miniColorDot,
+                          { backgroundColor: c },
+                          subColorInput === c && styles.miniColorDotActive,
+                        ]}
+                        onPress={() => setSubColorInput(c)}
+                      />
+                    ))}
+                  </View>
+                  <View style={styles.subFormActions}>
+                    <VintageButton label="ADD" onPress={() => handleAddSubToExisting(cat.id)} size="sm" />
+                    <VintageButton
+                      label="CANCEL"
+                      variant="ghost"
+                      onPress={() => { setAddSubForCat(null); setSubNameInput(''); setSubColorInput(null); }}
+                      size="sm"
+                    />
+                  </View>
+                </View>
+              ) : (
+                <TouchableOpacity
+                  style={styles.addSubBtn}
+                  onPress={() => setAddSubForCat(cat.id)}
+                >
+                  <VintageText variant="mono" size="xs" color={cat.color}>
+                    + ADD SUBCATEGORY
+                  </VintageText>
+                </TouchableOpacity>
+              )}
+            </View>
+          );
+        })
       )}
 
       {/* Add category form */}
@@ -67,6 +200,7 @@ export default function CategoriesScreen() {
             NEW CATEGORY
           </VintageText>
           <Divider marginVertical={Theme.spacing.sm} />
+
           <VintageInput
             label="Name"
             value={newName}
@@ -75,6 +209,7 @@ export default function CategoriesScreen() {
             error={formError}
             autoFocus
           />
+
           {/* Icon picker */}
           <VintageText variant="mono" size="xs" color={Theme.colors.inkFaint} style={styles.pickerLabel}>
             ICON
@@ -97,6 +232,7 @@ export default function CategoriesScreen() {
               </TouchableOpacity>
             ))}
           </View>
+
           {/* Color picker */}
           <VintageText variant="mono" size="xs" color={Theme.colors.inkFaint} style={styles.pickerLabel}>
             COLOR
@@ -110,9 +246,38 @@ export default function CategoriesScreen() {
               />
             ))}
           </View>
+
+          {/* Pending subcategories for the new category */}
+          <VintageText variant="mono" size="xs" color={Theme.colors.inkFaint} style={styles.pickerLabel}>
+            SUBCATEGORIES (OPTIONAL)
+          </VintageText>
+          {pendingSubs.map((ps, idx) => (
+            <View key={idx} style={styles.pendingSubRow}>
+              <VintageText variant="mono" size="xs" color={Theme.colors.muted}>└─</VintageText>
+              <VintageText variant="mono" size="sm" color={Theme.colors.ink} style={styles.pendingSubName}>
+                {ps.name.toUpperCase()}
+              </VintageText>
+              <TouchableOpacity onPress={() => removePendingSub(idx)}>
+                <VintageText variant="mono" size="sm" color={Theme.colors.red}>×</VintageText>
+              </TouchableOpacity>
+            </View>
+          ))}
+          <View style={styles.pendingSubInput}>
+            <TextInput
+              style={styles.subInput}
+              value={pendingSubName}
+              onChangeText={setPendingSubName}
+              placeholder="Subcategory name..."
+              placeholderTextColor={Theme.colors.inkFaint}
+              onSubmitEditing={addPendingSub}
+            />
+            <VintageButton label="+" onPress={addPendingSub} size="sm" />
+          </View>
+
+          <Divider marginVertical={Theme.spacing.sm} />
           <View style={styles.formActions}>
             <VintageButton label="SAVE" onPress={handleAdd} size="sm" />
-            <VintageButton label="CANCEL" variant="ghost" onPress={() => { setShowForm(false); setFormError(''); }} size="sm" />
+            <VintageButton label="CANCEL" variant="ghost" onPress={resetForm} size="sm" />
           </View>
         </View>
       ) : (
@@ -140,6 +305,90 @@ const styles = StyleSheet.create({
   empty: {
     marginVertical: Theme.spacing.xl,
     letterSpacing: 2,
+  },
+  catBlock: {
+    marginBottom: Theme.spacing.md,
+  },
+  subList: {
+    paddingLeft: Theme.spacing.lg,
+    marginTop: -Theme.spacing.xs,
+    marginBottom: Theme.spacing.xs,
+  },
+  subRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 4,
+    borderBottomWidth: 1,
+    borderColor: Theme.colors.borderLight,
+    borderStyle: 'dotted',
+  },
+  subRowLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Theme.spacing.xs,
+  },
+  subColorDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  subDelete: {
+    padding: Theme.spacing.xs,
+  },
+  addSubBtn: {
+    paddingLeft: Theme.spacing.lg,
+    paddingVertical: Theme.spacing.xs,
+  },
+  addSubForm: {
+    paddingLeft: Theme.spacing.lg,
+    paddingVertical: Theme.spacing.sm,
+    borderLeftWidth: 2,
+    borderColor: Theme.colors.borderLight,
+    marginLeft: Theme.spacing.md,
+  },
+  subInput: {
+    flex: 1,
+    fontFamily: Theme.fonts.mono,
+    fontSize: Theme.fontSize.monoSm,
+    color: Theme.colors.ink,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+    paddingHorizontal: Theme.spacing.sm,
+    paddingVertical: Theme.spacing.xs,
+    backgroundColor: Theme.colors.paper,
+  },
+  subColorRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 6,
+    marginBottom: 6,
+  },
+  subColorOption: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderWidth: 1,
+    borderColor: Theme.colors.borderLight,
+  },
+  subColorOptionActive: {
+    borderColor: Theme.colors.ink,
+    backgroundColor: Theme.colors.paperDark,
+  },
+  miniColorDot: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+  },
+  miniColorDotActive: {
+    borderWidth: 2,
+    borderColor: Theme.colors.ink,
+  },
+  subFormActions: {
+    flexDirection: 'row',
+    gap: Theme.spacing.sm,
+    marginTop: Theme.spacing.xs,
   },
   form: {
     borderWidth: Theme.borderWidth.normal,
@@ -184,6 +433,21 @@ const styles = StyleSheet.create({
   colorDotActive: {
     borderWidth: 3,
     borderColor: Theme.colors.ink,
+  },
+  pendingSubRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Theme.spacing.xs,
+    paddingVertical: 3,
+  },
+  pendingSubName: {
+    flex: 1,
+  },
+  pendingSubInput: {
+    flexDirection: 'row',
+    gap: Theme.spacing.xs,
+    alignItems: 'center',
+    marginTop: Theme.spacing.xs,
   },
   formActions: {
     flexDirection: 'row',
