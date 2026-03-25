@@ -81,7 +81,7 @@ export default function TasksScreen() {
         </VintageText>
       ) : null}
 
-      {loading ? (
+      {loading && tasks.length === 0 ? (
         <VintageText variant="mono" size="sm" color={Theme.colors.muted} align="center" style={styles.empty}>
           LOADING...
         </VintageText>

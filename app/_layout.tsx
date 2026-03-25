@@ -29,12 +29,13 @@ const FORCE_LOADING_SCREEN = process.env.EXPO_PUBLIC_FORCE_LOADING_SCREEN === 't
 const DEV_ALIGNMENT =
   process.env.EXPO_PUBLIC_DEV_ALIGNMENT === 'true' || process.env.DEV_ALIGNMENT === 'true';
 const BG_RAYS = require('../assets/splash-page/bg-rays.svg');
-const TV_BODY = require('../assets/splash-page/v-body.svg');
+const TV_BODY = require('../assets/splash-page/tv-body.svg');
 const TEXT_BG = require('../assets/splash-page/text-bg.svg');
 const ICON_CLOSE = require('../assets/splash-page/icon-close.svg');
 const ICON_CURSOR = require('../assets/splash-page/icon-cursor.svg');
 const ICON_FOLDER = require('../assets/splash-page/icon-folder.svg');
 const ICON_WARNING = require('../assets/splash-page/icon-warning.svg');
+const SPLASH_SVG = require('../splash.svg');
 const IPHONE_PRO = { width: 393, height: 852 };
 const IPHONE_PRO_MAX = { width: 430, height: 932 };
 let hasShownColdLaunchSplash = false;
@@ -101,6 +102,7 @@ export default function RootLayout() {
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const [assetsReady, setAssetsReady] = useState(false);
   const [assetUris, setAssetUris] = useState<{
+    splash: string;
     bg: string;
     tv: string;
     text: string;
@@ -140,11 +142,12 @@ export default function RootLayout() {
   }, []);
 
   useEffect(() => {
-    const modules = [BG_RAYS, TV_BODY, TEXT_BG, ICON_CLOSE, ICON_CURSOR, ICON_FOLDER, ICON_WARNING] as const;
+    const modules = [BG_RAYS, TV_BODY, TEXT_BG, ICON_CLOSE, ICON_CURSOR, ICON_FOLDER, ICON_WARNING, SPLASH_SVG] as const;
     Promise.all(modules.map(moduleRef => Asset.fromModule(moduleRef).downloadAsync()))
       .then(loaded => {
-        const [bg, tv, text, close, cursor, folder, warning] = loaded;
+        const [bg, tv, text, close, cursor, folder, warning, splash] = loaded;
         setAssetUris({
+          splash: splash.localUri ?? splash.uri ?? '',
           bg: bg.localUri ?? bg.uri ?? '',
           tv: tv.localUri ?? tv.uri ?? '',
           text: text.localUri ?? text.uri ?? '',
@@ -298,17 +301,14 @@ export default function RootLayout() {
   const bottomFadeStyle = useAnimatedStyle(() => ({ opacity: bottomOpacity.value }));
 
   if (shouldShowLoader) {
-    const segmentCount = 20;
-    const filledSegments = Math.round((progress / 100) * segmentCount);
-    const borderWidth = screenWidth * 0.004;
-    const outlineBlue = DEV_ALIGNMENT ? { borderWidth, borderColor: '#2F6DF6' } : undefined;
-    const outlineRed = DEV_ALIGNMENT ? { borderWidth, borderColor: '#EF4444' } : undefined;
-    const outlineGreen = DEV_ALIGNMENT ? { borderWidth, borderColor: '#22C55E' } : undefined;
-    const outlineYellow = DEV_ALIGNMENT ? { borderWidth, borderColor: '#EAB308' } : undefined;
     return (
       <View style={styles.loading}>
         <StatusBar hidden />
-        {assetUris?.bg ? <SvgUri uri={assetUris.bg} style={styles.loadingImage} /> : null}
+
+        {assetUris?.bg ? (
+          <SvgUri uri={assetUris.bg} preserveAspectRatio="xMidYMid slice" width="100%" height="100%" style={styles.loadingImage} />
+        ) : null}
+
         {assetUris?.tv ? (
           <Animated.View
             style={[
@@ -320,7 +320,6 @@ export default function RootLayout() {
                 width: layout.tvWidth,
                 height: layout.tvHeight,
               },
-              outlineBlue,
             ]}
           >
             <SvgUri uri={assetUris.tv} width="100%" height="100%" />
@@ -337,23 +336,23 @@ export default function RootLayout() {
               width: layout.textWidth,
               height: layout.textHeight,
             },
-            outlineRed,
           ]}
           pointerEvents="none"
         >
           {assetUris?.text ? <SvgUri uri={assetUris.text} width="100%" height="100%" /> : null}
+
           <View style={styles.scanlineOverlay}>
             {Array.from({ length: 42 }).map((_, i) => (
               <View key={`scan-${i}`} style={[styles.scanline, { height: screenHeight * 0.0012 }]} />
             ))}
           </View>
-          <View style={[styles.textWrap, outlineYellow]}>
+
+          <View style={styles.textWrap}>
             <Text
               style={[
                 styles.tvText,
                 {
                   fontSize: layout.tvWidth * 0.048,
-                  top: layout.textHeight * 0.35,
                 },
               ]}
             >
@@ -375,12 +374,13 @@ export default function RootLayout() {
                 width: layout.iconFolderSize,
                 height: layout.iconFolderSize,
               },
-              outlineGreen,
             ]}
+            pointerEvents="none"
           >
             <SvgUri uri={assetUris.folder} width="100%" height="100%" />
           </Animated.View>
         ) : null}
+
         {assetUris?.close ? (
           <Animated.View
             style={[
@@ -393,12 +393,13 @@ export default function RootLayout() {
                 width: layout.iconCloseSize,
                 height: layout.iconCloseSize,
               },
-              outlineGreen,
             ]}
+            pointerEvents="none"
           >
             <SvgUri uri={assetUris.close} width="100%" height="100%" />
           </Animated.View>
         ) : null}
+
         {assetUris?.cursor ? (
           <Animated.View
             style={[
@@ -411,12 +412,13 @@ export default function RootLayout() {
                 width: layout.iconCursorSize,
                 height: layout.iconCursorSize,
               },
-              outlineGreen,
             ]}
+            pointerEvents="none"
           >
             <SvgUri uri={assetUris.cursor} width="100%" height="100%" />
           </Animated.View>
         ) : null}
+
         {assetUris?.warning ? (
           <Animated.View
             style={[
@@ -429,8 +431,8 @@ export default function RootLayout() {
                 width: layout.iconWarningSize,
                 height: layout.iconWarningSize,
               },
-              outlineGreen,
             ]}
+            pointerEvents="none"
           >
             <SvgUri uri={assetUris.warning} width="100%" height="100%" />
           </Animated.View>
@@ -443,25 +445,9 @@ export default function RootLayout() {
           >
             <Text style={[styles.loadingLabel, { fontSize: screenHeight * 0.0105 }]}>LOADING SYSTEM...</Text>
             <View style={styles.loadingBarRow}>
-              <View
-                style={[
-                  styles.loadingBar,
-                  {
-                    height: screenHeight * 0.016,
-                    borderWidth: screenWidth * 0.004,
-                    paddingHorizontal: screenWidth * 0.006,
-                    gap: screenWidth * 0.003,
-                  },
-                ]}
-              >
-                {Array.from({ length: segmentCount }).map((_, idx) => (
-                  <View
-                    key={`seg-${idx}`}
-                    style={[
-                      styles.segment,
-                      idx < filledSegments ? styles.segmentFilled : styles.segmentEmpty,
-                    ]}
-                  />
+              <View style={[styles.loadingBar, { height: screenHeight * 0.016, borderWidth: screenWidth * 0.004 }]} >
+                {Array.from({ length: 20 }).map((_, idx) => (
+                  <View key={`seg-${idx}`} style={[styles.segment, idx < Math.round((progress / 100) * 20) ? styles.segmentFilled : styles.segmentEmpty]} />
                 ))}
               </View>
               <Text style={[styles.loadingPercent, { width: screenWidth * 0.2, fontSize: screenHeight * 0.0105 }]}>

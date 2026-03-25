@@ -71,6 +71,17 @@ export default function TabsLayout() {
           ),
         }}
       />
+      <Tabs.Screen
+        name="tracker"
+        options={{
+          tabBarIcon: ({ focused }) => <TabIcon symbol="▦" focused={focused} />,
+          tabBarLabel: ({ focused }) => (
+            <VintageText variant="mono" size="xs" color={focused ? Theme.colors.ink : Theme.colors.muted} align="center" style={[styles.tabLabel, focused && styles.tabLabelActive]}>
+              TRACKER
+            </VintageText>
+          ),
+        }}
+      />
     </Tabs>
   );
 }

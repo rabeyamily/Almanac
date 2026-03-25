@@ -34,6 +34,8 @@ export function EditTaskModal({ visible, task, categories, subcategories, onClos
   const [customDays, setCustomDays] = useState<number[]>(task?.custom_days ?? []);
   const [reminder, setReminder] = useState<ReminderSettings | null>(task?.reminder_settings ?? null);
   const [highlighted, setHighlighted] = useState<boolean>(task?.highlighted ?? false);
+  const [trackerEnabled, setTrackerEnabled] = useState<boolean>(task?.tracker_enabled ?? false);
+  const [trackerNickname, setTrackerNickname] = useState<string>(task?.tracker_nickname ?? '');
 
   React.useEffect(() => {
     setNameSegments(task?.rich_text_name ?? []);
@@ -44,6 +46,8 @@ export function EditTaskModal({ visible, task, categories, subcategories, onClos
     setCustomDays(task?.custom_days ?? []);
     setReminder(task?.reminder_settings ?? null);
     setHighlighted(task?.highlighted ?? false);
+    setTrackerEnabled(task?.tracker_enabled ?? false);
+    setTrackerNickname(task?.tracker_nickname ?? '');
   }, [task?.id]);
 
   const availableSubs = useMemo(
@@ -154,6 +158,26 @@ export function EditTaskModal({ visible, task, categories, subcategories, onClos
               </TouchableOpacity>
             </View>
 
+            <View style={styles.trackerRow}>
+              <VintageText variant="mono" size="xs" color={Theme.colors.inkFaint}>SHOW ON TRACKER</VintageText>
+              <TouchableOpacity
+                style={[styles.highlightToggle, trackerEnabled && styles.highlightToggleOn]}
+                onPress={() => setTrackerEnabled(v => !v)}
+              >
+                <VintageText variant="mono" size="xs" color={trackerEnabled ? Theme.colors.paper : Theme.colors.ink}>
+                  {trackerEnabled ? 'ON' : 'OFF'}
+                </VintageText>
+              </TouchableOpacity>
+            </View>
+
+            <VintageInput
+              label="TRACKER NICKNAME (optional)"
+              value={trackerNickname}
+              onChangeText={setTrackerNickname}
+              placeholder="e.g. Morning Run"
+              maxLength={24}
+            />
+
             <ReminderEditor title="SET REMINDER" value={reminder} onChange={setReminder} />
           </ScrollView>
 
@@ -176,6 +200,8 @@ export function EditTaskModal({ visible, task, categories, subcategories, onClos
                   custom_days: repeat === 'custom' ? customDays : null,
                   reminder_settings: reminder,
                   highlighted,
+                tracker_enabled: trackerEnabled,
+                tracker_nickname: trackerNickname.trim() ? trackerNickname.trim() : null,
                 });
                 setSaving(false);
                 onClose();
@@ -249,6 +275,12 @@ const styles = StyleSheet.create({
     gap: Theme.spacing.sm,
   },
   highlightRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: Theme.spacing.sm,
+  },
+  trackerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',

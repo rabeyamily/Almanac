@@ -10,19 +10,10 @@ interface ProgressOverviewProps {
 
 export function ProgressOverview({ completed, total }: ProgressOverviewProps) {
   const percentage = total === 0 ? 0 : Math.round((completed / total) * 100);
-  // Build a pixel-style progress bar using block characters
-  const BAR_LENGTH = 20;
-  const filled = Math.round((completed / Math.max(total, 1)) * BAR_LENGTH);
-  const bar = '█'.repeat(filled) + '░'.repeat(BAR_LENGTH - filled);
-
-  const statusMessage =
-    total === 0
-      ? 'NO TASKS TODAY'
-      : completed === total
-      ? 'ALL DONE! ★'
-      : completed === 0
-      ? 'LET\'S BEGIN...'
-      : `${total - completed} REMAINING`;
+  const ratio = total === 0 ? 0 : completed / total;
+  const BAR_LENGTH = 24;
+  const filled = Math.round(ratio * BAR_LENGTH);
+  const isComplete = total > 0 && completed === total;
 
   return (
     <VintageBox borderStyle="double" style={styles.container}>
@@ -45,23 +36,34 @@ export function ProgressOverview({ completed, total }: ProgressOverviewProps) {
         </VintageText>
       </View>
 
-      <VintageText
-        variant="mono"
-        size="xs"
-        color={completed === total && total > 0 ? Theme.colors.green : Theme.colors.gold}
-        style={styles.bar}
-      >
-        {bar}
-      </VintageText>
-
-      <VintageText
-        variant="mono"
-        size="sm"
-        color={Theme.colors.muted}
-        style={styles.status}
-      >
-        {statusMessage}
-      </VintageText>
+      <View style={styles.barOuter}>
+        <View
+          style={[
+            styles.barInner,
+            { opacity: total === 0 ? 0.25 : 1 },
+          ]}
+        >
+          {Array.from({ length: BAR_LENGTH }).map((_, idx) => {
+            const shouldFill = idx < filled;
+            return (
+              <View
+                // eslint-disable-next-line react/no-array-index-key
+                key={idx}
+                style={[
+                  styles.barSeg,
+                  {
+                    backgroundColor: shouldFill
+                      ? isComplete
+                        ? Theme.colors.green
+                        : Theme.colors.gold
+                      : Theme.colors.borderLight,
+                  },
+                ]}
+              />
+            );
+          })}
+        </View>
+      </View>
     </VintageBox>
   );
 }
@@ -86,11 +88,20 @@ const styles = StyleSheet.create({
   pct: {
     marginLeft: Theme.spacing.sm,
   },
-  bar: {
-    letterSpacing: 1,
+  barOuter: {
+    width: '100%',
+    marginTop: 0,
+    paddingHorizontal: 0, // fill inside VintageBox padding
     marginBottom: Theme.spacing.sm,
   },
-  status: {
-    letterSpacing: 2,
+  barInner: {
+    flexDirection: 'row',
+    width: '100%',
+    height: 14,
+  },
+  barSeg: {
+    flex: 1,
+    height: 14,
+    borderRadius: 0,
   },
 });

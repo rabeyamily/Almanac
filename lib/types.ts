@@ -71,6 +71,8 @@ export interface Task {
   custom_days: number[] | null;
   order_index: number;
   highlighted: boolean;
+  tracker_enabled?: boolean | null;
+  tracker_nickname?: string | null;
   reminder_settings: ReminderSettings | null;
   created_at: string;
 }

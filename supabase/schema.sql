@@ -47,6 +47,8 @@ CREATE TABLE IF NOT EXISTS tasks (
   scheduled_time   TEXT,              -- "HH:MM"
   repeat_schedule  TEXT NOT NULL DEFAULT 'daily',
   custom_days      INTEGER[],         -- 0=Sun … 6=Sat
+  tracker_enabled  BOOLEAN NOT NULL DEFAULT FALSE,
+  tracker_nickname TEXT,
   created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 

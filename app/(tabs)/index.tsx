@@ -1,6 +1,5 @@
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import { useRouter } from 'expo-router';
 import { ScreenLayout, VintageText, Divider, VintageBox } from '@/components/ui';
 import { LiveClock } from '@/components/home/LiveClock';
 import { ProgressOverview } from '@/components/home/ProgressOverview';
@@ -14,7 +13,6 @@ import { Theme } from '@/constants/theme';
 export default function HomeScreen() {
   const { tasks, toggleComplete } = useTasks();
   const { user } = useAuth();
-  const router = useRouter();
 
   const completed = tasks.filter(t => t.is_completed).length;
   const pinned = tasks.filter(t => t.highlighted);
@@ -29,12 +27,6 @@ export default function HomeScreen() {
         <View style={styles.topRight}>
           <TouchableOpacity
             style={styles.settingsBtn}
-            onPress={() => router.push('/categories')}
-          >
-            <VintageText variant="mono" size="lg" color={Theme.colors.muted}>▦</VintageText>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.settingsBtn}
             onPress={() => supabase.auth.signOut()}
           >
             <VintageText variant="mono" size="sm" color={Theme.colors.muted}>⏻</VintageText>
@@ -45,6 +37,8 @@ export default function HomeScreen() {
       <Divider marginVertical={Theme.spacing.sm} />
 
       <LiveClock />
+
+      <Divider marginVertical={Theme.spacing.sm} />
 
       <Divider marginVertical={Theme.spacing.sm} />
 

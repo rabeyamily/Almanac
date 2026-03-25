@@ -29,8 +29,9 @@ export function useTasks(date?: Date): UseTasksReturn {
   const dateKey = toDateKey(activeDate);
   const dayOfWeek = activeDate.getDay();
 
-  const fetch = useCallback(async () => {
-    setLoading(true);
+  const fetch = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
+    // "silent" refreshes (e.g. realtime updates) must not flip the screen into a loading state.
+    if (!silent) setLoading(true);
 
     let taskRes = await supabase
       .from('tasks')
@@ -48,7 +49,11 @@ export function useTasks(date?: Date): UseTasksReturn {
       supabase.from('task_completions').select('*').eq('completed_date', dateKey),
     ]);
 
-    if (taskRes.error) { setError(taskRes.error.message); setLoading(false); return; }
+    if (taskRes.error) {
+      setError(taskRes.error.message);
+      if (!silent) setLoading(false);
+      return;
+    }
 
     const categoryMap: Record<string, Category> = {};
     (catRes.data ?? []).forEach((c: Category) => { categoryMap[c.id] = c; });
@@ -77,16 +82,22 @@ export function useTasks(date?: Date): UseTasksReturn {
 
     setTasks(hydrated);
     setError(null);
-    setLoading(false);
+    if (!silent) setLoading(false);
   }, [dateKey, dayOfWeek]);
 
   useEffect(() => {
-    fetch();
+    fetch({ silent: false });
     const channel = supabase
       .channel(channelId.current)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, fetch)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'task_completions' }, fetch)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'subcategories' }, fetch)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => {
+        void fetch({ silent: true });
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'task_completions' }, () => {
+        void fetch({ silent: true });
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'subcategories' }, () => {
+        void fetch({ silent: true });
+      })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [fetch]);
