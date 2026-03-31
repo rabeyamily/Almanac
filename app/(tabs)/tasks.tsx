@@ -1,6 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ScreenLayout, VintageText, Divider, VintageButton } from '@/components/ui';
 import { CategorySection } from '@/components/tasks/CategorySection';
 import { TaskCard } from '@/components/tasks/TaskCard';
@@ -14,11 +14,17 @@ import { TaskWithStatus } from '@/lib/types';
 
 export default function TasksScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ compose?: string }>();
+  const startInAiMode = params.compose === 'ai';
   const { tasks, loading, error, toggleComplete, deleteTask, addTask, reorderTasks, updateTask } = useTasks();
   const { categories } = useCategories();
   const { subcategories } = useSubcategories();
-  const [showForm, setShowForm] = useState(false);
+  const [showForm, setShowForm] = useState(startInAiMode);
   const [editingTask, setEditingTask] = useState<TaskWithStatus | null>(null);
+
+  useEffect(() => {
+    if (startInAiMode) setShowForm(true);
+  }, [startInAiMode]);
 
   const completed = tasks.filter(t => t.is_completed).length;
 
@@ -146,13 +152,20 @@ export default function TasksScreen() {
           categories={categories}
           subcategories={subcategories}
           onSave={addTask}
-          onClose={() => setShowForm(false)}
+          initialMode={startInAiMode ? 'ai' : 'manual'}
+          onClose={() => {
+            setShowForm(false);
+            if (startInAiMode) router.setParams({ compose: undefined });
+          }}
         />
       ) : (
         <VintageButton
           label="+ ADD NEW TASK"
           variant="secondary"
-          onPress={() => setShowForm(true)}
+          onPress={() => {
+            setShowForm(true);
+            if (startInAiMode) router.setParams({ compose: undefined });
+          }}
           fullWidth
           style={styles.addBtn}
         />

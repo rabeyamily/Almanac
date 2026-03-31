@@ -4,7 +4,7 @@ import { useFonts } from 'expo-font';
 import { PressStart2P_400Regular } from '@expo-google-fonts/press-start-2p';
 import { ShareTechMono_400Regular } from '@expo-google-fonts/share-tech-mono';
 import * as SplashScreen from 'expo-splash-screen';
-import { AppState, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { AppState, Image, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
 import { Asset } from 'expo-asset';
@@ -36,6 +36,7 @@ const ICON_CURSOR = require('../assets/splash-page/icon-cursor.svg');
 const ICON_FOLDER = require('../assets/splash-page/icon-folder.svg');
 const ICON_WARNING = require('../assets/splash-page/icon-warning.svg');
 const SPLASH_SVG = require('../splash.svg');
+const SPLASH_IMAGE = require('../landing-page.png');
 const IPHONE_PRO = { width: 393, height: 852 };
 const IPHONE_PRO_MAX = { width: 430, height: 932 };
 let hasShownColdLaunchSplash = false;
@@ -304,163 +305,7 @@ export default function RootLayout() {
     return (
       <View style={styles.loading}>
         <StatusBar hidden />
-
-        {assetUris?.bg ? (
-          <SvgUri uri={assetUris.bg} preserveAspectRatio="xMidYMid slice" width="100%" height="100%" style={styles.loadingImage} />
-        ) : null}
-
-        {assetUris?.tv ? (
-          <Animated.View
-            style={[
-              styles.tvBody,
-              tvStyle,
-              {
-                left: layout.tvLeft,
-                top: layout.tvTop,
-                width: layout.tvWidth,
-                height: layout.tvHeight,
-              },
-            ]}
-          >
-            <SvgUri uri={assetUris.tv} width="100%" height="100%" />
-          </Animated.View>
-        ) : null}
-
-        <Animated.View
-          style={[
-            styles.textBox,
-            contentFade,
-            {
-              left: layout.textLeft,
-              top: layout.textTop,
-              width: layout.textWidth,
-              height: layout.textHeight,
-            },
-          ]}
-          pointerEvents="none"
-        >
-          {assetUris?.text ? <SvgUri uri={assetUris.text} width="100%" height="100%" /> : null}
-
-          <View style={styles.scanlineOverlay}>
-            {Array.from({ length: 42 }).map((_, i) => (
-              <View key={`scan-${i}`} style={[styles.scanline, { height: screenHeight * 0.0012 }]} />
-            ))}
-          </View>
-
-          <View style={styles.textWrap}>
-            <Text
-              style={[
-                styles.tvText,
-                {
-                  fontSize: layout.tvWidth * 0.048,
-                },
-              ]}
-            >
-              {typedText}
-              {cursorVisible ? '|' : ''}
-            </Text>
-          </View>
-        </Animated.View>
-
-        {assetUris?.folder ? (
-          <Animated.View
-            style={[
-              styles.absolute,
-              contentFade,
-              folderStyle,
-              {
-                left: layout.iconFolderLeft,
-                top: layout.iconFolderTop,
-                width: layout.iconFolderSize,
-                height: layout.iconFolderSize,
-              },
-            ]}
-            pointerEvents="none"
-          >
-            <SvgUri uri={assetUris.folder} width="100%" height="100%" />
-          </Animated.View>
-        ) : null}
-
-        {assetUris?.close ? (
-          <Animated.View
-            style={[
-              styles.absolute,
-              contentFade,
-              closeStyle,
-              {
-                left: layout.iconCloseLeft,
-                top: layout.iconCloseTop,
-                width: layout.iconCloseSize,
-                height: layout.iconCloseSize,
-              },
-            ]}
-            pointerEvents="none"
-          >
-            <SvgUri uri={assetUris.close} width="100%" height="100%" />
-          </Animated.View>
-        ) : null}
-
-        {assetUris?.cursor ? (
-          <Animated.View
-            style={[
-              styles.absolute,
-              contentFade,
-              cursorStyle,
-              {
-                left: layout.iconCursorLeft,
-                top: layout.iconCursorTop,
-                width: layout.iconCursorSize,
-                height: layout.iconCursorSize,
-              },
-            ]}
-            pointerEvents="none"
-          >
-            <SvgUri uri={assetUris.cursor} width="100%" height="100%" />
-          </Animated.View>
-        ) : null}
-
-        {assetUris?.warning ? (
-          <Animated.View
-            style={[
-              styles.absolute,
-              contentFade,
-              warnStyle,
-              {
-                left: layout.iconWarningLeft,
-                top: layout.iconWarningTop,
-                width: layout.iconWarningSize,
-                height: layout.iconWarningSize,
-              },
-            ]}
-            pointerEvents="none"
-          >
-            <SvgUri uri={assetUris.warning} width="100%" height="100%" />
-          </Animated.View>
-        ) : null}
-
-        {showLoadingBar ? (
-          <Animated.View
-            style={[styles.loadingBarWrap, barFadeStyle, { top: layout.barTop }]}
-            pointerEvents="none"
-          >
-            <Text style={[styles.loadingLabel, { fontSize: screenHeight * 0.0105 }]}>LOADING SYSTEM...</Text>
-            <View style={styles.loadingBarRow}>
-              <View style={[styles.loadingBar, { height: screenHeight * 0.016, borderWidth: screenWidth * 0.004 }]} >
-                {Array.from({ length: 20 }).map((_, idx) => (
-                  <View key={`seg-${idx}`} style={[styles.segment, idx < Math.round((progress / 100) * 20) ? styles.segmentFilled : styles.segmentEmpty]} />
-                ))}
-              </View>
-              <Text style={[styles.loadingPercent, { width: screenWidth * 0.2, fontSize: screenHeight * 0.0105 }]}>
-                {isReady ? 'SYSTEM READY.' : `${Math.round(progress)}%`}
-              </Text>
-            </View>
-          </Animated.View>
-        ) : null}
-
-        <Animated.View style={[styles.bottomTextWrap, bottomFadeStyle, { top: screenHeight * 0.88 }]}>
-          <Text style={[styles.bootText, { fontSize: screenHeight * 0.0105 }]}>BOOTING SYSTEM{bootDots}</Text>
-          <Text style={[styles.modeText, { fontSize: screenHeight * 0.0095 }]}>FORCED PREVIEW MODE</Text>
-        </Animated.View>
+        <Image source={SPLASH_IMAGE} style={styles.staticSplashImage} resizeMode="cover" />
       </View>
     );
   }
@@ -489,6 +334,11 @@ const styles = StyleSheet.create({
   },
   loadingImage: {
     ...StyleSheet.absoluteFillObject,
+  },
+  staticSplashImage: {
+    ...StyleSheet.absoluteFillObject,
+    width: '100%',
+    height: '100%',
   },
   absolute: {
     position: 'absolute',

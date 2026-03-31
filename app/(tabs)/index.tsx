@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { useRouter } from 'expo-router';
 import { ScreenLayout, VintageText, Divider, VintageBox } from '@/components/ui';
 import { LiveClock } from '@/components/home/LiveClock';
 import { ProgressOverview } from '@/components/home/ProgressOverview';
@@ -11,6 +12,7 @@ import { supabase } from '@/lib/supabase';
 import { Theme } from '@/constants/theme';
 
 export default function HomeScreen() {
+  const router = useRouter();
   const { tasks, toggleComplete } = useTasks();
   const { user } = useAuth();
 
@@ -25,6 +27,13 @@ export default function HomeScreen() {
           ALMANAC
         </VintageText>
         <View style={styles.topRight}>
+          <TouchableOpacity
+            style={styles.aiBtn}
+            onPress={() => router.push({ pathname: '/tasks', params: { compose: 'ai' } })}
+            activeOpacity={0.8}
+          >
+            <VintageText variant="mono" size="xs" color={Theme.colors.goldDark}>+ AI TASK</VintageText>
+          </TouchableOpacity>
           <TouchableOpacity
             style={styles.settingsBtn}
             onPress={() => supabase.auth.signOut()}
@@ -135,6 +144,13 @@ const styles = StyleSheet.create({
   },
   settingsBtn: {
     padding: Theme.spacing.xs,
+  },
+  aiBtn: {
+    borderWidth: 1,
+    borderColor: Theme.colors.gold,
+    backgroundColor: Theme.colors.paperDark,
+    paddingHorizontal: Theme.spacing.sm,
+    paddingVertical: Theme.spacing.xs,
   },
   pinnedSection: {
     marginBottom: Theme.spacing.md,
